@@ -134,6 +134,27 @@ Dead Knots:     G2-0: ≤11.5mm, G2-1: ≤21.5mm, G2-2: ≤31.5mm, G2-3: ≤61.5
 Unsound Knots:  G2-2: ≤25.5mm, G2-3: ≤50.5mm
 ```
 
+#### Confidence Thresholds
+- **Minimum Confidence**: 25% (MIN_CONFIDENCE = 0.25)
+- **Rejection Range**: 0-24.9% confidence (logged but not processed)
+- **Low Confidence Alert**: 25-30% confidence (processed with warning)
+- **Normal Confidence**: 30.1-100% confidence (processed normally)
+
+#### Notification System
+
+**Toast Notifications**: Non-blocking popup messages displayed in the center margin between cameras
+- **Types**: Success (green), Warning (yellow), Error (red), Info (blue)
+- **Size**: 450px × 100px
+- **Duration**: Configurable (default 4-6 seconds)
+
+**Low Confidence Detection (Test Case 3.1)**:
+- Triggers when detections fall in 25-30% confidence range
+- Indicates poor image quality or unclear defects
+- Shows warning toast: "⚠️ Low Confidence Detection"
+- Message: "{count} low confidence detection(s) on {camera} camera"
+- Duration: 6 seconds for operator review
+- Does NOT imply system failure - normal for challenging conditions
+
 ### Usage
 
 #### Starting the Application
@@ -230,6 +251,28 @@ testIR/
 
 ### Testing
 
+#### Test Case 3.1: System Robustness Under Abnormal Conditions
+
+**Objective**: Verify system handles poor image quality and unclear defects gracefully
+
+**Test Procedure**:
+1. Use planks with poor image quality (blur, low lighting, unclear defects)
+2. Present planks with defects at edges or partial visibility
+3. Simulate challenging detection conditions
+
+**Expected Behavior**:
+- Detections with 0-24.9% confidence: Rejected and logged (console only)
+- Detections with 25-30% confidence: Accepted with warning toast notification
+- Detections with 30%+ confidence: Processed normally without warnings
+- Operator receives clear warning without implying system failure
+- System continues operation without interruption
+
+**Validation**:
+- Toast notification appears: "⚠️ Low Confidence Detection"
+- Console logs show: "⚠️ UNCERTAIN detection (Test Case 3.1): {defect} @ {confidence}"
+- Detections are still processed and graded
+- No false system error states triggered
+
 #### Simulation Mode
 Run with test flag to simulate IR events:
 ```bash
@@ -272,6 +315,11 @@ python testIR.py test
 
 ### Recent Updates
 
+- **v4.2**: Implemented Test Case 3.1 - Low Confidence Detection System
+  - Added low confidence detection alerts (25-30% confidence range)
+  - Toast notification system for operator warnings
+  - Enhanced robustness testing for poor image quality and unclear defects
+  - Professional warning messages without implying system failure
 - **v4.1**: Added synchronized wood detection (bottom camera follows top)
 - **v4.0**: Implemented automatic camera reconnection with retry logic
 - **v3.9**: Added autofocus disable on camera connection
