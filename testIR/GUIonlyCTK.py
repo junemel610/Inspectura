@@ -290,6 +290,20 @@ class GUIOnlyApp(ctk.CTk):
             corner_radius=6, height=30, font=("Arial", 12)
         ).pack(pady=2, padx=10, fill="x")
 
+        ctk.CTkButton(
+            reports_scrollable, text="Test Real Notifications",
+            command=self.test_toast_notifications,
+            fg_color="#6f42c1", hover_color="#5a2d91",
+            corner_radius=6, height=30, font=("Arial", 12)
+        ).pack(pady=2, padx=10, fill="x")
+
+        ctk.CTkButton(
+            reports_scrollable, text="Test Simple Notifications",
+            command=self.test_simple_notifications,
+            fg_color="#17a2b8", hover_color="#138496",
+            corner_radius=6, height=30, font=("Arial", 12)
+        ).pack(pady=2, padx=10, fill="x")
+
         self.show_report_notification = tk.BooleanVar(value=True)
         ctk.CTkSwitch(reports_scrollable, text="Notifications",
                      variable=self.show_report_notification,
@@ -505,6 +519,188 @@ In the full application, this displays real-time metrics including:
         self.attributes("-fullscreen", False)
         return "break"
 
+    def show_toast_notification(self, title, message, duration=5000, type="info"):
+        """
+        Show a non-blocking toast notification overlay
+        
+        Args:
+            title: Notification title
+            message: Notification message
+            duration: Display duration in milliseconds (default 5000 = 5 seconds)
+            type: Notification type - "success", "warning", "error", "info"
+        """
+        try:
+            # Color scheme based on notification type
+            colors = {
+                "success": {"bg": "#28a745", "fg": "#ffffff"},
+                "warning": {"bg": "#ffc107", "fg": "#000000"},
+                "error": {"bg": "#dc3545", "fg": "#ffffff"},
+                "info": {"bg": "#17a2b8", "fg": "#ffffff"}
+            }
+            
+            color_scheme = colors.get(type, colors["info"])
+            
+            # Define fixed toast dimensions (larger for kiosk)
+            toast_width = 450
+            toast_height = 100
+            
+            # Create toast frame (overlay on main window) with fixed size
+            toast = ctk.CTkFrame(
+                self,
+                fg_color=color_scheme["bg"],
+                corner_radius=10,
+                border_width=2,
+                border_color="#ffffff",
+                width=toast_width,
+                height=toast_height
+            )
+            toast.pack_propagate(False)  # Prevent content from resizing the frame
+            
+            # Title label (larger font for kiosk)
+            title_label = ctk.CTkLabel(
+                toast,
+                text=title,
+                font=("Arial", 16, "bold"),  # Increased from 14 to 16
+                text_color=color_scheme["fg"]
+            )
+            title_label.pack(padx=20, pady=(12, 2))
+            
+            # Message label (larger font for kiosk)
+            message_label = ctk.CTkLabel(
+                toast,
+                text=message,
+                font=("Arial", 14),  # Increased from 12 to 14
+                text_color=color_scheme["fg"],
+                wraplength=400
+            )
+            message_label.pack(padx=20, pady=(2, 12))
+            
+            # Position toast in the center of the margin between the two camera canvases
+            toast.update_idletasks()  # Force geometry update
+            
+            # Calculate position - center of margin between cameras
+            # Left camera ends at: 10 + canvas_width
+            # Right camera starts at: canvas_width + 40
+            # Margin between cameras is 30px (from x=canvas_width+10 to x=canvas_width+40)
+            margin_center = self.canvas_width + 25  # Middle of the 30px margin
+            x_position = margin_center - (toast_width // 2)  # Center toast on margin
+            y_position = 35  # Below the wood specification notice
+            
+            # Place the toast (width already set in constructor)
+            toast.place(x=x_position, y=y_position)
+            
+            # Lift toast to front
+            toast.lift()
+            
+            # Auto-dismiss after duration
+            def dismiss_toast():
+                try:
+                    toast.destroy()
+                except:
+                    pass
+            
+            # Schedule dismissal
+            self.after(duration, dismiss_toast)
+            
+            # Optional: Click to dismiss
+            def click_dismiss(event):
+                dismiss_toast()
+            
+            toast.bind("<Button-1>", click_dismiss)
+            title_label.bind("<Button-1>", click_dismiss)
+            message_label.bind("<Button-1>", click_dismiss)
+            
+            print(f"Toast notification shown: {title}")
+            
+        except Exception as e:
+            print(f"Error showing toast notification: {e}")
+            # Fallback to console output
+            print(f"TOAST: {title} - {message}")
+
+    def test_toast_notifications(self):
+        """Test all toast notification types with realistic examples"""
+        # Camera reconnection success (from actual app)
+        self.after(500, lambda: self.show_toast_notification(
+            "Camera Reconnected",
+            "Top camera successfully reconnected and ready",
+            duration=5000,
+            type="success"
+        ))
+        
+        # Low confidence detection warning (from actual app)
+        self.after(2500, lambda: self.show_toast_notification(
+            "Low Confidence Detection",
+            "Sound Knot detected with 45% confidence - below 50% threshold",
+            duration=6000,
+            type="warning"
+        ))
+        
+        # Wood alignment warning (from actual app)
+        self.after(5000, lambda: self.show_toast_notification(
+            "Wood Misalignment Detected",
+            "Wood touching top lane boundary - check conveyor alignment",
+            duration=6000,
+            type="warning"
+        ))
+        
+        # Arduino reconnection (from actual app)
+        self.after(7500, lambda: self.show_toast_notification(
+            "Arduino Reconnected",
+            "Controller reconnected on COM3 after 2 attempts",
+            duration=5000,
+            type="success"
+        ))
+        
+        # Report generation success (from actual app)
+        self.after(10000, lambda: self.show_toast_notification(
+            "Report Generated",
+            "PDF report saved: Wood_Session_2024-11-02_143022.pdf",
+            duration=5000,
+            type="info"
+        ))
+        
+        # Camera disconnection error (from actual app)
+        self.after(12500, lambda: self.show_toast_notification(
+            "Camera Disconnected",
+            "Bottom camera connection lost - attempting reconnection...",
+            duration=8000,
+            type="error"
+        ))
+
+    def test_simple_notifications(self):
+        """Test simple notification types (original demo)"""
+        # Success toast
+        self.after(500, lambda: self.show_toast_notification(
+            "Success",
+            "This is a success notification example!",
+            duration=5000,
+            type="success"
+        ))
+        
+        # Info toast
+        self.after(2000, lambda: self.show_toast_notification(
+            "Information",
+            "This is an informational notification example.",
+            duration=5000,
+            type="info"
+        ))
+        
+        # Warning toast
+        self.after(3500, lambda: self.show_toast_notification(
+            "Warning",
+            "This is a warning notification example.",
+            duration=5000,
+            type="warning"
+        ))
+        
+        # Error toast
+        self.after(5000, lambda: self.show_toast_notification(
+            "Error",
+            "This is an error notification example.",
+            duration=5000,
+            type="error"
+        ))
+
     def on_closing(self):
         """Handle window closing"""
         print("Closing GUI design application...")
@@ -513,4 +709,8 @@ In the full application, this displays real-time metrics including:
 
 if __name__ == "__main__":
     app = GUIOnlyApp()
+    
+    # Test realistic toast notifications after a short delay
+    app.after(1000, app.test_toast_notifications)
+    
     app.mainloop()

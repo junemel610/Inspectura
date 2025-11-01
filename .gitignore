@@ -1,0 +1,5 @@
+# Ignore Detections folder
+Detections/
+
+# Ignore report text files
+report*.txt

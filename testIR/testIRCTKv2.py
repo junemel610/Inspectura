@@ -3951,14 +3951,24 @@ class App(ctk.CTk):
                 if not camera_status['both_ok']:
                     print("Camera status check failed - attempting reconnection...")
                     if not self.camera_disconnected_popup_shown:
-                        messagebox.showwarning("Camera Disconnection", "Camera disconnection detected. Attempting reconnection...")
+                        self.show_toast_notification(
+                            "⚠️ Camera Disconnection",
+                            "Camera disconnection detected.\nAttempting automatic reconnection...",
+                            duration=5000,
+                            type="warning"
+                        )
                         self.camera_disconnected_popup_shown = True
                     if self.camera_handler.reassign_cameras_runtime():
                         # Update the cap references after successful reconnection
                         self.cap_top = self.camera_handler.top_camera
                         self.cap_bottom = self.camera_handler.bottom_camera
                         print("Camera reconnection successful during runtime")
-                        messagebox.showinfo("Camera Reconnection", "Cameras have been reconnected successfully.")
+                        self.show_toast_notification(
+                            "✅ Camera Reconnection",
+                            "Cameras reconnected successfully.",
+                            duration=5000,
+                            type="success"
+                        )
                         self.camera_disconnected_popup_shown = False
                         if hasattr(self, 'status_label'):
                             # status_label is a Text widget, not a Label widget
@@ -4067,10 +4077,11 @@ class App(ctk.CTk):
         print("="*60)
         
         try:
-            messagebox.showwarning(
-                "⚠ Low Confidence Detection",
-                "Low confidence detections have been found.\n\n"
-                "The AI model detected objects but with lower than normal confidence levels."
+            self.show_toast_notification(
+                "⚠️ Low Confidence Detection",
+                "Low confidence detections found.\nAI model detected objects with lower confidence levels.",
+                duration=6000,
+                type="warning"
             )
             print("✅ Low confidence notification displayed successfully")
         except Exception as e:
@@ -5269,9 +5280,14 @@ class App(ctk.CTk):
                     warning_title, warning_message = data
                     print(f"[DEBUG QUEUE] Title: {warning_title}")
                     print(f"[DEBUG QUEUE] Message: {warning_message[:50]}...")
-                    print(f"[DEBUG QUEUE] Showing messagebox...")
-                    messagebox.showwarning(warning_title, warning_message)
-                    print(f"[DEBUG QUEUE] Messagebox shown successfully")
+                    print(f"[DEBUG QUEUE] Showing toast notification...")
+                    self.show_toast_notification(
+                        warning_title,
+                        warning_message,
+                        duration=6000,
+                        type="warning"
+                    )
+                    print(f"[DEBUG QUEUE] Toast notification shown successfully")
                     continue
                 
                 if msg_type == "arduino_message":
@@ -5513,11 +5529,17 @@ class App(ctk.CTk):
                         print(f"🔄 Arduino disconnected, attempting reconnection {reconnect_attempts}/{max_reconnect_attempts}...")
                         if not self.arduino_disconnected_popup_shown:
                             # Enhanced disconnection message with restart recommendation
-                            disconnect_message = "Arduino has been disconnected. Attempting reconnection...\n\n"
+                            disconnect_message = "Arduino disconnected. Attempting reconnection..."
                             if self.current_mode == "SCAN_PHASE":
-                                disconnect_message += ("IMPORTANT: If you were scanning, please restart the scan manually "
-                                                      "after reconnection to ensure proper wood detection and avoid numbering conflicts.")
-                            messagebox.showwarning("Arduino Disconnection", disconnect_message)
+                                disconnect_message += "\n\nIMPORTANT: Restart scan manually after reconnection to ensure proper detection."
+                            
+                            # Use non-blocking toast notification
+                            self.show_toast_notification(
+                                "⚠️ Arduino Disconnection",
+                                disconnect_message,
+                                duration=7000,
+                                type="warning"
+                            )
                             self.arduino_disconnected_popup_shown = True
                         time.sleep(3)  # Increased wait time for Arduino to stabilize
 
@@ -5530,12 +5552,17 @@ class App(ctk.CTk):
                                     print(f"✅ Arduino reconnected successfully on {self.ser.port}")
                                     
                                     # Enhanced reconnection message
-                                    reconnect_message = f"Arduino has been reconnected on {self.ser.port}"
+                                    reconnect_message = f"Arduino reconnected on {self.ser.port}"
                                     if self.current_mode == "SCAN_PHASE":
-                                        reconnect_message += ("\n\nREMINDER: Please restart your scan manually "
-                                                             "by clicking the ON button to ensure proper detection.")
+                                        reconnect_message += "\n\nREMINDER: Restart scan manually by clicking ON button."
                                     
-                                    messagebox.showinfo("Arduino Reconnection", reconnect_message)
+                                    # Use non-blocking toast notification
+                                    self.show_toast_notification(
+                                        "✅ Arduino Reconnected",
+                                        reconnect_message,
+                                        duration=7000,
+                                        type="success"
+                                    )
                                     self.arduino_disconnected_popup_shown = False
                                     reconnect_attempts = 0
                                     reconnected = True
@@ -6153,7 +6180,12 @@ class App(ctk.CTk):
                 raise OSError("Unsupported operating system")
         except Exception as e:
             print(f"Error opening folder: {e}")
-            messagebox.showerror("Error", f"Could not open folder:\n{e}")
+            self.show_toast_notification(
+                "❌ Error Opening Folder",
+                f"Could not open folder:\n{str(e)[:100]}",
+                duration=5000,
+                type="error"
+            )
     
     def update_wood_counter_display(self):
         """Update the wood counter label in the GUI"""
@@ -6639,6 +6671,7 @@ class App(ctk.CTk):
             # Process detections for object tracking
             current_detections = []
             low_confidence_count = 0
+            uncertain_confidence_count = 0  # Track 25-30% range for Test Case 3.1
             rejected_by_roi = 0
             
             for det in inference_result.results:
@@ -6653,6 +6686,12 @@ class App(ctk.CTk):
                     low_confidence_count += 1
                     print(f"   ❌ Rejected (low confidence): {model_label} @ {confidence:.3f}")
                     continue  # Skip low confidence detections
+
+                # Test Case 3.1: Track uncertain detections (25-30% confidence range)
+                # These represent poor image quality or unclear defects
+                if 0.25 <= confidence <= 0.30:
+                    uncertain_confidence_count += 1
+                    print(f"   ⚠️  UNCERTAIN detection (Test Case 3.1): {model_label} @ {confidence:.3f} - Low confidence accepted")
 
                 # Adjust bounding box coordinates from 640x640 padded back to original frame
                 # Remove padding offset and apply inverse scale
@@ -6719,15 +6758,24 @@ class App(ctk.CTk):
             if rejected_by_roi > 0:
                 print(f"   🚫 Rejected by Wood ROI filter: {rejected_by_roi} detection(s)")
 
-            # Notify user if low confidence detections were found
-            if low_confidence_count > 0:
-                warning_msg = f"⚠️ {low_confidence_count} low confidence detection(s) found on {camera_name} camera"
+            # Test Case 3.1: Alert operator for uncertain detections (25-30% confidence)
+            if uncertain_confidence_count > 0:
+                warning_msg = f"⚠️ Low confidence detection: {uncertain_confidence_count} uncertain detection(s) (25-30% confidence) on {camera_name} camera"
                 print(warning_msg)
-                # Show warning notification (non-blocking)
+                # Show warning notification for operator review
                 try:
-                    messagebox.showwarning("Low Confidence Detection", warning_msg)
+                    self.show_toast_notification(
+                        "⚠️ Low Confidence Detection",
+                        f"{uncertain_confidence_count} low confidence detection(s) on {camera_name} camera",
+                        duration=6000,
+                        type="warning"
+                    )
                 except Exception as e:
-                    print(f"Could not show warning dialog: {e}")
+                    print(f"Could not show warning notification: {e}")
+            
+            # Also notify if rejected detections were found (for debugging)
+            elif low_confidence_count > 0:
+                print(f"   📊 Info: {low_confidence_count} detection(s) rejected (<25% confidence) on {camera_name} camera")
 
             # Check for wood detection issues (if this is a wood detection analysis)
             if run_defect_model and hasattr(self, 'wood_detection_results'):
@@ -7536,24 +7584,34 @@ class App(ctk.CTk):
                         print(f"⚠️ Verification attempt {verify_attempt + 1} failed - retrying...")
                 
                 if verification_success:
-                    # Show success notification to user
-                    self.show_reconnection_success_notification()
-                    
-                    # Update status
-                    self.update_status_text("Status: Cameras reconnected successfully", STATUS_READY_COLOR)
-                    
-                    # Set a grace period to prevent immediate re-detection of camera errors
+                    # 1. SET GRACE PERIOD FIRST (before any notifications)
                     self.camera_reconnection_grace_start = time.time()
                     self.camera_reconnection_grace_period = 30.0  # 30 seconds grace period
                     print("🛡️ Camera reconnection grace period activated (30 seconds)")
+                    
+                    # 2. CLEAR ERROR STATE IMMEDIATELY
+                    if "CAMERA_DISCONNECTED" in self.error_state["active_errors"]:
+                        try:
+                            self.error_state["active_errors"].remove("CAMERA_DISCONNECTED")
+                            print("✅ Removed CAMERA_DISCONNECTED from active errors")
+                        except ValueError:
+                            pass  # Already removed
+                    
+                    # 3. UPDATE STATUS IMMEDIATELY (non-blocking)
+                    self.update_status_text("Status: Cameras reconnected successfully", STATUS_READY_COLOR)
+                    
+                    # 4. RESET RECONNECTION ATTEMPTS
+                    self.camera_reconnection_attempts = 0
+                    
+                    # 5. NOW SHOW NON-BLOCKING NOTIFICATIONS (safe because grace period is active)
+                    self.show_reconnection_success_notification()
+                    
+                    return True
                 else:
                     print("⚠️ Warning: Final camera status check failed after apparent success")
                     print(f"   Final status: Top={'✅ OK' if final_status['top_ok'] else '❌ FAIL'}, Bottom={'✅ OK' if final_status['bottom_ok'] else '❌ FAIL'}")
                     # Don't show success notification if final check fails
                     return False
-                
-                self.camera_reconnection_attempts = 0  # Reset counter on success
-                return True
             else:
                 print("Camera reconnection failed - not all cameras reconnected")
                 
@@ -7578,6 +7636,16 @@ class App(ctk.CTk):
             return
             
         current_time = time.time()
+        
+        # CHECK GRACE PERIOD FIRST - Skip monitoring if recently reconnected
+        if hasattr(self, 'camera_reconnection_grace_start'):
+            grace_elapsed = current_time - self.camera_reconnection_grace_start
+            if grace_elapsed < self.camera_reconnection_grace_period:
+                # Still in grace period - skip all checks to prevent false positives
+                remaining = self.camera_reconnection_grace_period - grace_elapsed
+                if int(remaining) % 5 == 0:  # Log every 5 seconds
+                    print(f"🛡️ Camera grace period active - {remaining:.1f}s remaining")
+                return
         
         # Only check cameras at specified intervals
         if current_time - self.last_camera_check_time < self.camera_check_interval:
@@ -7605,10 +7673,12 @@ class App(ctk.CTk):
                         # If we've reached max attempts, show a message
                         if self.camera_reconnection_attempts >= self.max_camera_reconnection_attempts:
                             print("⚠️ Maximum camera reconnection attempts reached - manual intervention may be required")
-                            self.show_error_alert(
-                                "Camera Reconnection Failed", 
-                                "Automatic camera reconnection has failed after multiple attempts. Please check camera connections manually.",
-                                "warning"
+                            # Use non-blocking toast instead of blocking alert
+                            self.show_toast_notification(
+                                "⚠️ Camera Reconnection Failed",
+                                "Automatic reconnection failed after multiple attempts.\nPlease check camera connections manually.",
+                                duration=8000,  # 8 seconds for important warning
+                                type="warning"
                             )
                             # Reset counter to allow future attempts after some time
                             self.camera_reconnection_attempts = 0
@@ -7633,27 +7703,27 @@ class App(ctk.CTk):
         # Don't use self.after here to avoid recursion
 
     def show_reconnection_success_notification(self):
-        """Show success notification when cameras are reconnected"""
+        """Show success notification when cameras are reconnected - NON-BLOCKING"""
         try:
-            success_message = (
-                "🎉 CAMERAS RECONNECTED SUCCESSFULLY! 🎉\n\n"
-                "Both cameras have been automatically reconnected and are ready for operation.\n\n"
-                "✅ Top camera: Connected and ready\n"
-                "✅ Bottom camera: Connected and ready\n"
-                "✅ System status: Fully operational\n\n"
-                "The system is now ready to resume normal operations.\n"
-                "You can continue with wood inspection and grading."
+            # Use non-blocking toast notification instead of modal popup
+            self.show_toast_notification(
+                "🎉 Cameras Reconnected Successfully",
+                "Both cameras are ready for operation.\nYou can continue with wood inspection and grading.",
+                duration=6000,  # 6 seconds
+                type="success"
             )
-            
-            messagebox.showinfo("🎉 Camera Reconnection Successful", success_message)
             
             # Update status display 
             self.update_status_text("Status: Cameras ready - reconnection successful", STATUS_READY_COLOR)
             
-            # Show desktop notification if possible
-            self.show_desktop_notification("🎉 Cameras Reconnected", "Both cameras successfully reconnected and ready", "INFO")
+            # Show desktop notification (also non-blocking)
+            self.show_desktop_notification(
+                "🎉 Cameras Reconnected", 
+                "Both cameras successfully reconnected and ready", 
+                "INFO"
+            )
             
-            print("🎉 Success notification shown to user")
+            print("🎉 Success notification shown to user (non-blocking)")
             
         except Exception as e:
             print(f"Error showing reconnection success notification: {e}")
@@ -7672,18 +7742,22 @@ class App(ctk.CTk):
         if success:
             print("✅ Manual camera reconnection successful!")
             self.update_status_text("Status: Cameras manually reconnected", STATUS_READY_COLOR)
-            self.show_error_alert(
-                "Camera Reconnected", 
-                "Cameras have been manually reconnected successfully and are ready for operation.",
-                "info"
+            # Use non-blocking toast instead of blocking alert
+            self.show_toast_notification(
+                "✅ Camera Reconnected",
+                "Cameras manually reconnected successfully and ready for operation.",
+                duration=5000,
+                type="success"
             )
             return True
         else:
             print("❌ Manual camera reconnection failed")
-            self.show_error_alert(
-                "Camera Reconnection Failed", 
-                "Manual camera reconnection failed. Please check camera connections and try again.",
-                "warning"
+            # Use non-blocking toast instead of blocking alert
+            self.show_toast_notification(
+                "❌ Reconnection Failed",
+                "Manual camera reconnection failed. Please check connections and try again.",
+                duration=5000,
+                type="error"
             )
             return False
     
@@ -8014,11 +8088,16 @@ class App(ctk.CTk):
                 warning_msg += f"Wood is touching the {touched_lane} lane boundary."
                 print(warning_msg)
                 
-                # Show warning notification (non-blocking)
+                # Show warning notification (non-blocking toast)
                 try:
-                    messagebox.showwarning("Wood Misalignment", warning_msg)
+                    self.show_toast_notification(
+                        "⚠️ Wood Misalignment",
+                        f"Wood touching {touched_lane} lane on {camera_name.upper()} camera",
+                        duration=6000,
+                        type="warning"
+                    )
                 except Exception as e:
-                    print(f"Could not show warning dialog: {e}")
+                    print(f"Could not show warning notification: {e}")
                 
         except Exception as e:
             print(f"Error in check_wood_lane_alignment: {e}")
@@ -8430,10 +8509,19 @@ class App(ctk.CTk):
             else:
                 alert_message = f"{error_name}\n\n{message}\n\nPlease check system status and take appropriate action."
             
+            # Use toast for warnings, modal popup for critical errors only
             if severity == "CRITICAL":
+                # Critical errors still use modal popup - user MUST acknowledge
                 messagebox.showerror(title, alert_message)
             else:
-                messagebox.showwarning(title, alert_message)
+                # Warnings and errors use non-blocking toast
+                toast_type = "error" if severity == "ERROR" else "warning"
+                self.show_toast_notification(
+                    title,
+                    alert_message[:200],  # Truncate for toast display
+                    duration=8000,  # 8 seconds for important errors
+                    type=toast_type
+                )
                 
             # Update status display with error information
             self.update_status_text(f"{title}: {error_name}", color)
@@ -8550,6 +8638,104 @@ class App(ctk.CTk):
             except:
                 pass
             print(f"Error playing system beep: {e}")
+    
+    def show_toast_notification(self, title, message, duration=5000, type="info"):
+        """
+        Show a non-blocking toast notification overlay
+        
+        Args:
+            title: Notification title
+            message: Notification message
+            duration: Display duration in milliseconds (default 5000 = 5 seconds)
+            type: Notification type - "success", "warning", "error", "info"
+        """
+        try:
+            # Color scheme based on notification type
+            colors = {
+                "success": {"bg": "#28a745", "fg": "#ffffff"},
+                "warning": {"bg": "#ffc107", "fg": "#000000"},
+                "error": {"bg": "#dc3545", "fg": "#ffffff"},
+                "info": {"bg": "#17a2b8", "fg": "#ffffff"}
+            }
+            
+            color_scheme = colors.get(type, colors["info"])
+            
+            # Define fixed toast dimensions (larger for kiosk)
+            toast_width = 450
+            toast_height = 100
+            
+            # Create toast frame (overlay on main window) with fixed size
+            toast = ctk.CTkFrame(
+                self,
+                fg_color=color_scheme["bg"],
+                corner_radius=10,
+                border_width=2,
+                border_color="#ffffff",
+                width=toast_width,
+                height=toast_height
+            )
+            toast.pack_propagate(False)  # Prevent content from resizing the frame
+            
+            # Title label (larger font for kiosk)
+            title_label = ctk.CTkLabel(
+                toast,
+                text=title,
+                font=("Arial", 16, "bold"),  # Increased from 14 to 16
+                text_color=color_scheme["fg"]
+            )
+            title_label.pack(padx=20, pady=(12, 2))
+            
+            # Message label (larger font for kiosk)
+            message_label = ctk.CTkLabel(
+                toast,
+                text=message,
+                font=("Arial", 14),  # Increased from 12 to 14
+                text_color=color_scheme["fg"],
+                wraplength=400
+            )
+            message_label.pack(padx=20, pady=(2, 12))
+            
+            # Position toast in the center of the margin between the two camera canvases
+            toast.update_idletasks()  # Force geometry update
+            
+            # Calculate position - center of margin between cameras
+            # Left camera ends at: 10 + canvas_width
+            # Right camera starts at: canvas_width + 40
+            # Margin between cameras is 30px (from x=canvas_width+10 to x=canvas_width+40)
+            margin_center = self.canvas_width + 25  # Middle of the 30px margin
+            x_position = margin_center - (toast_width // 2)  # Center toast on margin
+            y_position = 35  # Below the wood specification notice
+            
+            # Place the toast (width already set in constructor)
+            toast.place(x=x_position, y=y_position)
+            
+            # Lift toast to front
+            toast.lift()
+            
+            # Auto-dismiss after duration
+            def dismiss_toast():
+                try:
+                    toast.destroy()
+                except:
+                    pass
+            
+            # Schedule dismissal
+            self.after(duration, dismiss_toast)
+            
+            # Optional: Click to dismiss
+            def click_dismiss(event):
+                dismiss_toast()
+            
+            toast.bind("<Button-1>", click_dismiss)
+            title_label.bind("<Button-1>", click_dismiss)
+            message_label.bind("<Button-1>", click_dismiss)
+            
+            print(f"Toast notification shown: {title}")
+            
+        except Exception as e:
+            print(f"Error showing toast notification: {e}")
+            # Fallback to console output
+            print(f"TOAST: {title} - {message}")
     
     def show_manual_inspection_dialog(self, error_details):
         """Show dialog for manual inspection routing"""
@@ -8857,7 +9043,12 @@ class App(ctk.CTk):
             print(f"SS-EN 1611-1 report generated: {txt_filename}")
         except Exception as e:
             print(f"Error generating TXT report: {e}")
-            messagebox.showerror("Report Error", f"Could not save TXT report: {e}")
+            self.show_toast_notification(
+                "❌ Report Error",
+                f"Could not save TXT report:\n{str(e)[:100]}",
+                duration=6000,
+                type="error"
+            )
             return
 
         # Append to main log file
@@ -8926,13 +9117,23 @@ class App(ctk.CTk):
             self.last_report_path = pdf_filename
             self.last_report_label.configure(text=f"Last Report: {os.path.basename(self.last_report_path)}")
             
-            # Show notification only if toggle is enabled
+            # Show notification only if toggle is enabled - use non-blocking toast
             if self.show_report_notification.get():
-                messagebox.showinfo("SS-EN 1611-1 Report", f"Reports saved as {txt_filename} and {pdf_filename}\nLog updated: {log_filename}")
+                self.show_toast_notification(
+                    "📄 Report Generated",
+                    f"Reports saved:\n{os.path.basename(txt_filename)}\n{os.path.basename(pdf_filename)}",
+                    duration=6000,
+                    type="success"
+                )
 
         except Exception as e:
             print(f"Error generating PDF report: {e}")
-            messagebox.showerror("Report Error", f"Could not save PDF report: {e}")
+            self.show_toast_notification(
+                "❌ Report Error",
+                f"Could not save PDF report:\n{str(e)[:100]}",
+                duration=6000,
+                type="error"
+            )
             
         # Reset the session log after generating the report
         self.session_log = []
@@ -8983,22 +9184,52 @@ class App(ctk.CTk):
                 # Update the cap references
                 self.cap_top = self.camera_handler.top_camera
                 self.cap_bottom = self.camera_handler.bottom_camera
-                messagebox.showinfo("Success", "Cameras reassigned successfully!")
+                self.show_toast_notification(
+                    "✅ Success",
+                    "Cameras reassigned successfully!",
+                    duration=5000,
+                    type="success"
+                )
             else:
-                messagebox.showerror("Error", "Camera reassignment failed. Check console for details.")
+                self.show_toast_notification(
+                    "❌ Error",
+                    "Camera reassignment failed.\nCheck console for details.",
+                    duration=5000,
+                    type="error"
+                )
         except Exception as e:
-            messagebox.showerror("Error", f"Camera reassignment error: {e}")
+            self.show_toast_notification(
+                "❌ Error",
+                f"Camera reassignment error:\n{str(e)[:100]}",
+                duration=5000,
+                type="error"
+            )
 
     def _reassign_arduino_ui(self):
         """UI wrapper for Arduino reassignment"""
         try:
             success = self.reassign_arduino_runtime()
             if success:
-                messagebox.showinfo("Success", "Arduino reassigned successfully!")
+                self.show_toast_notification(
+                    "✅ Success",
+                    "Arduino reassigned successfully!",
+                    duration=5000,
+                    type="success"
+                )
             else:
-                messagebox.showerror("Error", "Arduino reassignment failed. Check console for details.")
+                self.show_toast_notification(
+                    "❌ Error",
+                    "Arduino reassignment failed.\nCheck console for details.",
+                    duration=5000,
+                    type="error"
+                )
         except Exception as e:
-            messagebox.showerror("Error", f"Arduino reassignment error: {e}")
+            self.show_toast_notification(
+                "❌ Error",
+                f"Arduino reassignment error:\n{str(e)[:100]}",
+                duration=5000,
+                type="error"
+            )
 
     def simulate_ir_events(self):
         """Simulate IR beam events for testing TRIGGER mode"""
