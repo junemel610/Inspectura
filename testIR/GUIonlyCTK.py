@@ -530,6 +530,9 @@ In the full application, this displays real-time metrics including:
             type: Notification type - "success", "warning", "error", "info"
         """
         try:
+            # Get current timestamp
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            
             # Color scheme based on notification type
             colors = {
                 "success": {"bg": "#28a745", "fg": "#ffffff"},
@@ -542,7 +545,7 @@ In the full application, this displays real-time metrics including:
             
             # Define fixed toast dimensions (larger for kiosk)
             toast_width = 450
-            toast_height = 100
+            toast_height = 120  # Increased from 100 to accommodate timestamp
             
             # Create toast frame (overlay on main window) with fixed size
             toast = ctk.CTkFrame(
@@ -556,6 +559,15 @@ In the full application, this displays real-time metrics including:
             )
             toast.pack_propagate(False)  # Prevent content from resizing the frame
             
+            # Timestamp label (small, subtle)
+            timestamp_label = ctk.CTkLabel(
+                toast,
+                text=f"🕐 {timestamp}",
+                font=("Arial", 12),
+                text_color=color_scheme["fg"]
+            )
+            timestamp_label.pack(padx=20, pady=(8, 0))
+            
             # Title label (larger font for kiosk)
             title_label = ctk.CTkLabel(
                 toast,
@@ -563,7 +575,7 @@ In the full application, this displays real-time metrics including:
                 font=("Arial", 16, "bold"),  # Increased from 14 to 16
                 text_color=color_scheme["fg"]
             )
-            title_label.pack(padx=20, pady=(12, 2))
+            title_label.pack(padx=20, pady=(2, 2))
             
             # Message label (larger font for kiosk)
             message_label = ctk.CTkLabel(
@@ -607,10 +619,11 @@ In the full application, this displays real-time metrics including:
                 dismiss_toast()
             
             toast.bind("<Button-1>", click_dismiss)
+            timestamp_label.bind("<Button-1>", click_dismiss)
             title_label.bind("<Button-1>", click_dismiss)
             message_label.bind("<Button-1>", click_dismiss)
             
-            print(f"Toast notification shown: {title}")
+            print(f"Toast notification shown: [{timestamp}] {title}")
             
         except Exception as e:
             print(f"Error showing toast notification: {e}")
