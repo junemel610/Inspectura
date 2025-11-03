@@ -2901,7 +2901,7 @@ class App(ctk.CTk):
             ("grade1", "G2-0\n(Good)", GRADE_PERFECT_COLOR),
             ("grade2", "G2-1\n(Good)", GRADE_GOOD_COLOR),
             ("grade3", "G2-2\n(Fair)", GRADE_FAIR_COLOR),
-            ("grade4", "G2-3\n(Fair)", GRADE_FAIR_COLOR),
+            ("grade4", "G2-3\n(Poor)", GRADE_POOR_COLOR),
             ("grade5", "G2-4\n(Poor)", GRADE_POOR_COLOR)
         ]
 
@@ -3297,8 +3297,8 @@ class App(ctk.CTk):
             GRADE_G2_0: 1,    # Perfect (G2-0) - Gate 1
             GRADE_G2_1: 2,    # Good (G2-1) - Gate 2
             GRADE_G2_2: 2,    # Fair (G2-2) - Gate 2
-            GRADE_G2_3: 2,    # Poor (G2-3) - Gate 2
-            GRADE_G2_4: 3     # Reject (G2-4) - Gate 3
+            GRADE_G2_3: 3,    # Poor (G2-3) - Gate 3
+            GRADE_G2_4: 3     # Poor (G2-4) - Gate 3
         }
 
         return grade_to_command.get(standard_grade, 3)  # Default to worst gate if unknown
@@ -7010,7 +7010,7 @@ class App(ctk.CTk):
         threshold_text += "• G2-0 (Good): Max 2 knots/meter, 0 unsound knots\n"
         threshold_text += "• G2-1 (Good): Max 4 knots/meter, 0 unsound knots\n"
         threshold_text += "• G2-2 (Fair): Max 6 knots/meter, 2 unsound knots\n"
-        threshold_text += "• G2-3 (Fair): Unlimited knots, 5 unsound knots max\n"
+        threshold_text += "• G2-3 (Poor): Unlimited knots, 5 unsound knots max\n"
         threshold_text += "• G2-4 (Poor): Unlimited knots and defects\n\n"
         
         threshold_text += "KNOT SIZE LIMITS (Formula: 10% × Width + Constant):\n\n"

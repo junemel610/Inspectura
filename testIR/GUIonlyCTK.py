@@ -402,11 +402,11 @@ class GUIOnlyApp(ctk.CTk):
 
         self.live_stats_labels = {}
         grade_info = [
-            ("grade1", "G2-0\n(Good)", GRADE_PERFECT_COLOR),
-            ("grade2", "G2-1\n(Good)", GRADE_GOOD_COLOR),
-            ("grade3", "G2-2\n(Fair)", GRADE_FAIR_COLOR),
-            ("grade4", "G2-3\n(Fair)", GRADE_FAIR_COLOR),
-            ("grade5", "G2-4\n(Poor)", GRADE_POOR_COLOR)
+            ("grade1", "G2-0\n(Good) → Bin 1", GRADE_PERFECT_COLOR),
+            ("grade2", "G2-1\n(Good) → Bin 2", GRADE_GOOD_COLOR),
+            ("grade3", "G2-2\n(Fair) → Bin 2", GRADE_FAIR_COLOR),
+            ("grade4", "G2-3\n(Poor) → Bin 3", GRADE_FAIR_COLOR),
+            ("grade5", "G2-4\n(Poor) → Bin 3", GRADE_POOR_COLOR)
         ]
 
         for grade_key, label_text, color in grade_info:

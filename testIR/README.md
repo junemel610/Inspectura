@@ -76,10 +76,10 @@ v2)
 |-----------|-----|------|----------------|
 | IR Beam Sensor | 11 | Digital Input (Active LOW, PULLUP) | Debounce: 50ms |
 | Stepper Motor | 8 (ENA), 9 (DIR), 10 (STEP) | Digital Output | 500μs/step interval |
-| Servo Gate 1 | 2 | PWM Output | 0°-180° (G2-0 Perfect) |
-| Servo Gate 2 | 3 | PWM Output | 0°-180° (G2-1/2/3 Good/Fair/Poor) |
-| Servo Gate 3 | 4 | PWM Output | 0°-180° (G2-4 Reject) |
-| Servo Gate 4 | 5 | PWM Output | 0°-180° (Additional) |
+| Servo Gate 1 | 2 | PWM Output | 0°-180° (Bin 1: G2-0 Perfect) |
+| Servo Gate 2 | 3 | PWM Output | 0°-180° (Bin 2: G2-1/G2-2 Good/Fair) |
+| Servo Gate 3 | 4 | PWM Output | 0°-180° (Bin 3: G2-3/G2-4 Poor/Reject) |
+| Servo Gate 4 | 5 | PWM Output | 0°-180° (Additional/Backup) |
 
 ### Cameras
 - **TOP Camera**: USB Camera Index 0 (1280x720 capture, 640x360 display)
@@ -168,9 +168,9 @@ Wait for next IR beam break...
 
 | Command | Action | Description |
 |---------|--------|-------------|
-| `'1'` | `servo.write(90)` | Move all servos to 90° (Gate 1 - G2-0 Perfect) |
-| `'2'` | `servo.write(45)` | Move all servos to 45° (Gate 2 - G2-1/2/3) |
-| `'3'` | `servo.write(135)` | Move all servos to 135° (Gate 3 - G2-4 Reject) |
+| `'1'` | `servo.write(90)` | Move all servos to 90° (Bin 1 - G2-0 Perfect) |
+| `'2'` | `servo.write(45)` | Move all servos to 45° (Bin 2 - G2-1/G2-2 Good/Fair) |
+| `'3'` | `servo.write(135)` | Move all servos to 135° (Bin 3 - G2-3/G2-4 Poor/Reject) |
 | `'0'` | `servo.write(0)` | Move all servos to 0° (Calibration position) |
 | `'C'` | `currentMode = CONTINUOUS` | Enable continuous motor mode |
 | `'T'` | `currentMode = TRIGGER` | Enable trigger mode (IR beam controlled) |
@@ -332,14 +332,19 @@ self.DETECTION_THRESHOLDS = {
 
 #### 6. **SS-EN 1611-1 Grading Engine**
 
-**Grading Classes**:
-| Grade | Arduino Command | Servo Position | Description |
-|-------|-----------------|----------------|-------------|
-| **G2-0** | `'1'` | 90° | Perfect - No defects allowed |
-| **G2-1** | `'2'` | 45° | Good - Minor defects <15mm |
-| **G2-2** | `'2'` | 45° | Fair - Moderate defects <25mm |
-| **G2-3** | `'2'` | 45° | Poor - Significant defects <40mm |
-| **G2-4** | `'3'` | 135° | Reject - Major defects >40mm or critical flaws |
+**Grading Classes & Bin Assignment**:
+| Grade | Arduino Command | Servo Position | Physical Bin | Description |
+|-------|-----------------|----------------|--------------|-------------|
+| **G2-0** | `'1'` | 90° | **Bin 1** | Perfect - No defects allowed |
+| **G2-1** | `'2'` | 45° | **Bin 2** | Good - Minor defects <15mm |
+| **G2-2** | `'2'` | 45° | **Bin 2** | Fair - Moderate defects <25mm |
+| **G2-3** | `'3'` | 135° | **Bin 3** | Poor - Significant defects <40mm |
+| **G2-4** | `'3'` | 135° | **Bin 3** | Reject - Major defects >40mm or critical flaws |
+
+**Sorting Strategy**:
+- **Bin 1 (90° servo)**: Perfect quality only (G2-0)
+- **Bin 2 (45° servo)**: Good to Fair quality (G2-1, G2-2)
+- **Bin 3 (135° servo)**: Poor to Reject quality (G2-3, G2-4)
 
 **Grading Criteria** (Pine Timber 75-150mm width):
 ```python
@@ -573,9 +578,12 @@ python3 testIRCTKv2.py
    - Calculates SS-EN 1611-1 grade
 
 5. **Grading Result**
-   - Python sends grade command to Arduino (`'1'`, `'2'`, or `'3'`)
+   - Python sends grade command to Arduino:
+     - G2-0 → Command `'1'` → Bin 1 (90°)
+     - G2-1, G2-2 → Command `'2'` → Bin 2 (45°)
+     - G2-3, G2-4 → Command `'3'` → Bin 3 (135°)
    - Servos move to sorting position
-   - Wood piece sorted into appropriate bin
+   - Wood piece sorted into appropriate bin (1, 2, or 3)
 
 6. **Report Generation**
    - Saves images to `Detections/Wood_XXX/Segment_Y/`
