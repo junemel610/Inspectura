@@ -7637,25 +7637,30 @@ class App(ctk.CTk):
             
         current_time = time.time()
         
-        # CHECK GRACE PERIOD FIRST - Skip monitoring if recently reconnected
-        if hasattr(self, 'camera_reconnection_grace_start'):
-            grace_elapsed = current_time - self.camera_reconnection_grace_start
-            if grace_elapsed < self.camera_reconnection_grace_period:
-                # Still in grace period - skip all checks to prevent false positives
-                remaining = self.camera_reconnection_grace_period - grace_elapsed
-                if int(remaining) % 5 == 0:  # Log every 5 seconds
-                    print(f"🛡️ Camera grace period active - {remaining:.1f}s remaining")
-                return
-        
         # Only check cameras at specified intervals
         if current_time - self.last_camera_check_time < self.camera_check_interval:
             return
             
         self.last_camera_check_time = current_time
         
+        # Check if in grace period (but don't return - just note it for logging)
+        in_grace_period = False
+        if hasattr(self, 'camera_reconnection_grace_start'):
+            grace_elapsed = current_time - self.camera_reconnection_grace_start
+            if grace_elapsed < self.camera_reconnection_grace_period:
+                in_grace_period = True
+                remaining = self.camera_reconnection_grace_period - grace_elapsed
+                if int(remaining) % 5 == 0:  # Log every 5 seconds
+                    print(f"🛡️ Camera grace period active - {remaining:.1f}s remaining (but monitoring continues)")
+        
         try:
             # Check if we have a CAMERA_DISCONNECTED error
             if "CAMERA_DISCONNECTED" in self.error_state["active_errors"]:
+                # Skip reconnection attempts during grace period to avoid race conditions
+                if in_grace_period:
+                    print("🛡️ Skipping reconnection attempt during grace period")
+                    return
+                    
                 print("🔍 Camera monitor: Detected active camera disconnection error - attempting automatic reconnection")
                 
                 # Only attempt reconnection if we haven't exceeded max attempts
@@ -9070,10 +9075,12 @@ class App(ctk.CTk):
             with open(log_filename, 'a') as f:
                 f.write(log_entry)
             print(f"Entry added to log file: {log_filename}")
-            self.log_status_label.configure(text="Log: Updated", text_color="blue")
+            if hasattr(self, 'log_status_label'):
+                self.log_status_label.configure(text="Log: Updated", text_color="blue")
         except Exception as e:
             print(f"Error updating log file: {e}")
-            self.log_status_label.configure(text="Log: Error", text_color="red")
+            if hasattr(self, 'log_status_label'):
+                self.log_status_label.configure(text="Log: Error", text_color="red")
 
         # Generate PDF Report
         try:
@@ -9156,7 +9163,8 @@ class App(ctk.CTk):
     def manual_generate_report(self):
         """Manually generate a report"""
         self.generate_report()
-        self.log_status_label.configure(text="Log: Manual report generated", text_color="green")
+        if hasattr(self, 'log_status_label'):
+            self.log_status_label.configure(text="Log: Manual report generated", text_color="green")
 
     def view_session_folder(self):
         """Open the current session folder in file explorer"""
@@ -9183,11 +9191,13 @@ class App(ctk.CTk):
                 subprocess.run(["xdg-open", folder_path])
 
             print(f"Opened session folder: {folder_path}")
-            self.log_status_label.configure(text="Log: Session folder opened", text_color="blue")
+            if hasattr(self, 'log_status_label'):
+                self.log_status_label.configure(text="Log: Session folder opened", text_color="blue")
 
         except Exception as e:
             print(f"Error opening session folder: {e}")
-            self.log_status_label.configure(text="Log: Error opening folder", text_color="red")
+            if hasattr(self, 'log_status_label'):
+                self.log_status_label.configure(text="Log: Error opening folder", text_color="red")
 
     def _reassign_cameras_ui(self):
         """UI wrapper for camera reassignment"""
