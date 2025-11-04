@@ -1,0 +1,33 @@
+{
+    "ConfigVersion": 11,
+    "Checksum": "a3da85aa203721866e8456bfe348919dfdbb214b9a371d06b7fda85567c89671",
+    "DEVICE": [
+        {
+            "DeviceType": "HAILO8",
+            "RuntimeAgent": "HAILORT",
+            "SupportedDeviceTypes": "HAILORT/HAILO8",
+            "EagerBatchSize": 1
+        }
+    ],
+    "PRE_PROCESS": [
+        {
+            "InputN": 1,
+            "InputH": 640,
+            "InputW": 640,
+            "InputC": 3,
+            "InputQuantEn": true
+        }
+    ],
+    "MODEL_PARAMETERS": [
+        {
+            "ModelPath": "Wood_Plank--640x640_quant_hailort_hailo8_2.hef"
+        }
+    ],
+    "POST_PROCESS": [
+        {
+            "OutputPostprocessType": "DetectionYoloHailo",
+            "OutputNumClasses": 1,
+            "LabelsPath": "labels_Wood_Plank.json"
+        }
+    ]
+}

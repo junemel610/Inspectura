@@ -1,0 +1,12 @@
+# Ignore Detections folder
+Detections/
+
+# Ignore report text files
+report*.txt
+report*.pdf
+
+# Ignore venv
+/venv
+
+# Ignore hailort.log
+hailort.log
