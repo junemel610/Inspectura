@@ -3,3 +3,6 @@ Detections/
 
 # Ignore report text files
 report*.txt
+
+# Ignore venv
+/venv
