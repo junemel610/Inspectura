@@ -8670,7 +8670,7 @@ class App(ctk.CTk):
             
             # Define fixed toast dimensions (larger for kiosk)
             toast_width = 450
-            toast_height = 120  # Increased from 100 to accommodate timestamp
+            toast_height = 170  # Increased from 100 to accommodate timestamp
             
             # Create toast frame (overlay on main window) with fixed size
             toast = ctk.CTkFrame(
@@ -9135,10 +9135,11 @@ class App(ctk.CTk):
             print(f"SS-EN 1611-1 PDF report generated: {pdf_filename}")
             
             self.last_report_path = pdf_filename
-            self.last_report_label.configure(text=f"Last Report: {os.path.basename(self.last_report_path)}")
-            
-            # Show notification only if toggle is enabled - use non-blocking toast
-            if self.show_report_notification.get():
+            if hasattr(self, 'last_report_label'):
+                self.last_report_label.configure(text=f"Last Report: {os.path.basename(self.last_report_path)}")
+
+            # Show notification - check if toggle exists, otherwise always show
+            if not hasattr(self, 'show_report_notification') or self.show_report_notification.get():
                 self.show_toast_notification(
                     "📄 Report Generated",
                     f"Reports saved:\n{os.path.basename(txt_filename)}\n{os.path.basename(pdf_filename)}",
