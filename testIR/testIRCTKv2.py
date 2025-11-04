@@ -2586,7 +2586,7 @@ class App(ctk.CTk):
         # --- DeGirum Model and Camera Initialization ---
         # DeGirum Configuration
         self.inference_host_address = "@local"
-        self.zoo_url = "/home/inspectura/Desktop/InspecturaGUI/models/NonAugmentDefects--640x640_quant_hailort_hailo8_1"
+        self.zoo_url = "/home/inspectura/Desktop/Inspectura/models/NonAugmentDefects--640x640_quant_hailort_hailo8_1"
         # Model configuration - MUST match live_inference.py
         self.model_name = "NonAugmentDefects--640x640_quant_hailort_hailo8_1"  
         
