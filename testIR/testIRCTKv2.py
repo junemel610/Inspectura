@@ -5539,21 +5539,18 @@ class App(ctk.CTk):
                     if reconnect_attempts < max_reconnect_attempts:
                         reconnect_attempts += 1
                         print(f"🔄 Arduino disconnected, attempting reconnection {reconnect_attempts}/{max_reconnect_attempts}...")
+                        
                         if not self.arduino_disconnected_popup_shown:
-                            # Enhanced disconnection message with restart recommendation
-                            disconnect_message = "Arduino disconnected. Attempting reconnection..."
-                            if self.current_mode == "SCAN_PHASE":
-                                disconnect_message += "\n\nIMPORTANT: Restart scan manually after reconnection to ensure proper detection."
-                            
-                            # Use non-blocking toast notification
+                            # Show toast notification
                             self.show_toast_notification(
-                                "⚠️ Arduino Disconnection",
-                                disconnect_message,
+                                "⚠️ Arduino Not Connected",
+                                "Arduino disconnected. Attempting reconnection...",
                                 duration=7000,
                                 type="warning"
                             )
                             self.arduino_disconnected_popup_shown = True
-                        time.sleep(3)  # Increased wait time for Arduino to stabilize
+                        
+                        time.sleep(2)  # Wait for Arduino to stabilize
 
                         # Try to reconnect with multiple attempts per reconnection cycle
                         reconnected = False
@@ -5563,16 +5560,11 @@ class App(ctk.CTk):
                                 if self.ser and self.ser.is_open:
                                     print(f"✅ Arduino reconnected successfully on {self.ser.port}")
                                     
-                                    # Enhanced reconnection message
-                                    reconnect_message = f"Arduino reconnected on {self.ser.port}"
-                                    if self.current_mode == "SCAN_PHASE":
-                                        reconnect_message += "\n\nREMINDER: Restart scan manually by clicking ON button."
-                                    
-                                    # Use non-blocking toast notification
+                                    # Show success toast
                                     self.show_toast_notification(
-                                        "✅ Arduino Reconnected",
-                                        reconnect_message,
-                                        duration=7000,
+                                        "✅ Arduino Connected",
+                                        f"Arduino reconnected on {self.ser.port}",
+                                        duration=6000,
                                         type="success"
                                     )
                                     self.arduino_disconnected_popup_shown = False
@@ -5610,7 +5602,8 @@ class App(ctk.CTk):
                 if reconnect_attempts < max_reconnect_attempts:
                     reconnect_attempts += 1
                     print(f"🔄 Communication error, attempting reconnection {reconnect_attempts}/{max_reconnect_attempts}...")
-                    time.sleep(3)  # Increased wait time
+                    
+                    time.sleep(2)  # Wait before retry
 
                     # Multiple reconnection attempts
                     reconnected = False
@@ -5619,6 +5612,15 @@ class App(ctk.CTk):
                             self.setup_arduino()
                             if self.ser and self.ser.is_open:
                                 print(f"✅ Arduino reconnected after error on {self.ser.port}")
+                                
+                                # Show success toast
+                                self.show_toast_notification(
+                                    "✅ Arduino Connected",
+                                    f"Arduino reconnected on {self.ser.port}",
+                                    duration=6000,
+                                    type="success"
+                                )
+                                
                                 reconnect_attempts = 0
                                 reconnected = True
                                 
@@ -5687,10 +5689,10 @@ class App(ctk.CTk):
             if self.ser:
                 # Check if serial connection is still valid
                 if not hasattr(self.ser, 'is_open') or not self.ser.is_open:
-                    print("Serial connection is closed, attempting to reconnect...")
-                    self.setup_arduino()
-                    if not self.ser:
-                        return
+                    print("❌ Serial connection is closed, reconnection will be handled by listen_for_arduino()")
+                    # Register error and return - don't try to reconnect here
+                    self.register_error("ARDUINO_DISCONNECTED", "Serial connection closed")
+                    return
                 
                 # Clear buffers before sending command to prevent overflow
                 try:
@@ -5762,20 +5764,19 @@ class App(ctk.CTk):
                 # status_label is a Text widget, not a Label widget
                 self.status_label.config(state=tk.NORMAL)
                 self.status_label.delete(1.0, tk.END)
-                self.status_label.insert(1.0, "Status: Arduino communication error - attempting reconnect...")
+                self.status_label.insert(1.0, "Status: Arduino communication error - reconnection in progress...")
                 self.status_label.config(state=tk.DISABLED)
             
-            # Try to reconnect only if not shutting down
-            if not (hasattr(self, '_shutting_down') and self._shutting_down):
-                print("🔄 Attempting Arduino reconnection...")
+            # Close the broken connection
+            if self.ser:
+                try:
+                    self.ser.close()
+                except:
+                    pass
                 self.ser = None
-                
-                # Extended recovery time for voltage drop scenarios
-                recovery_delay = 3.0 if is_grading_command else 1.0
-                print(f"🔋 Power recovery delay: {recovery_delay}s to allow voltage stabilization")
-                time.sleep(recovery_delay)
-                
-                self.setup_arduino()
+            
+            # DON'T call setup_arduino() here - let listen_for_arduino() handle reconnection
+            # This prevents infinite loops when Arduino is disconnected
 
     def set_continuous_mode(self):
         """Sets the system to fully automatic continuous mode."""
@@ -7216,7 +7217,7 @@ class App(ctk.CTk):
                 
                 # Skip desktop notification entirely for auto-recoverable errors
                 # These errors have automatic recovery mechanisms and shouldn't spam user
-                auto_recoverable_errors = ["CAMERA_DISCONNECTED"]
+                auto_recoverable_errors = ["CAMERA_DISCONNECTED", "ARDUINO_DISCONNECTED"]
                 
                 if error_type not in auto_recoverable_errors:
                     # For non-recoverable errors, schedule delayed desktop notification
@@ -7234,17 +7235,36 @@ class App(ctk.CTk):
                     self.show_error_alert(error_type, details, severity)
                 else:
                     # For auto-recoverable errors, check if we're in grace period first
-                    if hasattr(self, 'camera_reconnection_grace_start'):
+                    in_grace_period = False
+                    
+                    # Check camera grace period
+                    if error_type == "CAMERA_DISCONNECTED" and hasattr(self, 'camera_reconnection_grace_start'):
                         grace_elapsed = time.time() - self.camera_reconnection_grace_start
                         if grace_elapsed < self.camera_reconnection_grace_period:
-                            print(f"🛡️ Skipping toast notification - already in grace period from recent reconnection")
-                            return  # Don't show any notification during grace period
+                            in_grace_period = True
+                    
+                    # Check Arduino grace period
+                    if error_type == "ARDUINO_DISCONNECTED" and hasattr(self, 'arduino_reconnection_grace_start'):
+                        grace_elapsed = time.time() - self.arduino_reconnection_grace_start
+                        if grace_elapsed < getattr(self, 'arduino_reconnection_grace_period', 30.0):
+                            in_grace_period = True
+                    
+                    if in_grace_period:
+                        print(f"🛡️ Skipping toast notification - already in grace period from recent reconnection")
+                        return  # Don't show any notification during grace period
                     
                     print(f"🛡️ Skipping desktop notification for auto-recoverable error: {error_type}")
                     # For auto-recoverable errors, show non-blocking toast only (no modal popup, no desktop notification)
+                    if error_type == "CAMERA_DISCONNECTED":
+                        toast_message = "Camera disconnection detected. Automatic reconnection in progress..."
+                    elif error_type == "ARDUINO_DISCONNECTED":
+                        toast_message = "Arduino disconnection detected. Automatic reconnection in progress..."
+                    else:
+                        toast_message = f"{error_type} detected. Automatic recovery in progress..."
+                    
                     self.show_toast_notification(
                         "⚠️ System Alert",
-                        f"Camera disconnection detected. Automatic reconnection in progress...",
+                        toast_message,
                         duration=8000,
                         type="warning"
                     )
@@ -7430,15 +7450,33 @@ class App(ctk.CTk):
                         f"SCAN INTERRUPTED: {details}\n\nScan phase has been stopped for safety. Please resolve the issue and restart scanning.",
                         "CRITICAL"
                     )
-                    # Force switch to IDLE mode for safety
-                    self.set_idle_mode()
+                    # Force switch to IDLE mode for safety (but don't send Arduino command if Arduino is disconnected)
+                    if error_type == "ARDUINO_DISCONNECTED":
+                        # Just update mode locally without sending command
+                        print("Setting IDLE Mode (local only - Arduino disconnected)")
+                        self.current_mode = "IDLE"
+                        # Update UI
+                        if hasattr(self, 'live_detection_var'):
+                            self.live_detection_var.set(False)
+                        if hasattr(self, 'auto_grade_var'):
+                            self.auto_grade_var.set(False)
+                    else:
+                        self.set_idle_mode()
                     # Clear scan state since it's interrupted
                     self._clear_scan_state()
                 else:
                     # Try to send error to Arduino if it's not Arduino disconnection
                     if error_type != "ARDUINO_DISCONNECTED":
                         self.send_error_to_arduino(error_type, details)
-                    self.set_idle_mode()
+                        self.set_idle_mode()
+                    else:
+                        # Just update mode locally without sending command
+                        print("Setting IDLE Mode (local only - Arduino disconnected)")
+                        self.current_mode = "IDLE"
+                        if hasattr(self, 'live_detection_var'):
+                            self.live_detection_var.set(False)
+                        if hasattr(self, 'auto_grade_var'):
+                            self.auto_grade_var.set(False)
             else:
                 # For other critical errors, try to send to Arduino first
                 self.send_error_to_arduino(error_type, details)
@@ -7638,8 +7676,8 @@ class App(ctk.CTk):
                 if verification_success:
                     # 1. SET GRACE PERIOD FIRST (before any notifications)
                     self.camera_reconnection_grace_start = time.time()
-                    self.camera_reconnection_grace_period = 30.0  # 30 seconds grace period
-                    print("🛡️ Camera reconnection grace period activated (30 seconds)")
+                    self.camera_reconnection_grace_period = 60.0  # 60 seconds grace period (increased from 30s)
+                    print("🛡️ Camera reconnection grace period activated (60 seconds)")
                     
                     # 2. CLEAR ERROR STATE IMMEDIATELY
                     if "CAMERA_DISCONNECTED" in self.error_state["active_errors"]:
@@ -7819,40 +7857,136 @@ class App(ctk.CTk):
             return False
     
     def recover_arduino_connection(self):
-        """Attempt to recover Arduino connection with enhanced voltage drop handling"""
+        """Attempt to recover Arduino connection - streamlined like camera reconnection"""
         try:
-            print("Attempting Arduino reconnection...")
-            # Close existing connection
-            if hasattr(self, 'ser') and self.ser and self.ser.is_open:
-                self.ser.close()
+            print("🔌 Attempting Arduino reconnection...")
             
-            # Extended delay for voltage drop recovery
-            print("🔋 Extended power recovery delay for voltage drop scenarios")
-            time.sleep(2.0)  # Extended delay for voltage stabilization
-            
-            # Attempt reconnection using existing setup
-            self.setup_arduino()
-            
-            # Test connection with a safe command
-            if hasattr(self, 'ser') and self.ser and self.ser.is_open:
-                # Send a test command to verify connection stability
+            # Close existing connection first
+            if hasattr(self, 'ser') and self.ser:
                 try:
-                    test_command = "STATUS_REQUEST"
-                    self.ser.write(test_command.encode('utf-8'))
-                    self.ser.flush()
-                    time.sleep(0.5)  # Wait for response
+                    if self.ser.is_open:
+                        self.ser.close()
+                except:
+                    pass
+                self.ser = None
+            
+            # Quick delay for voltage stabilization
+            time.sleep(0.5)
+            
+            # Try dynamic Arduino identification first (fast)
+            arduino_ports = self._identify_arduino_port()
+            
+            if arduino_ports:
+                port = arduino_ports[0]
+                print(f"✅ Found Arduino on {port}")
+                
+                try:
+                    # Quick connection attempt
+                    self.ser = serial.Serial(
+                        port=port,
+                        baudrate=9600,
+                        timeout=2,
+                        write_timeout=2,
+                        bytesize=serial.EIGHTBITS,
+                        parity=serial.PARITY_NONE,
+                        stopbits=serial.STOPBITS_ONE,
+                        xonxoff=False,
+                        rtscts=False,
+                        dsrdtr=False
+                    )
                     
+                    # Quick stabilization
+                    time.sleep(0.5)
+                    self.ser.reset_input_buffer()
+                    self.ser.reset_output_buffer()
+                    
+                    # Restart listener thread
+                    if not hasattr(self, 'arduino_thread') or not self.arduino_thread.is_alive():
+                        self.arduino_thread = threading.Thread(target=self.listen_for_arduino, daemon=True)
+                        self.arduino_thread.start()
+                    
+                    # Test connection
+                    self.ser.write(b'STATUS_REQUEST')
+                    self.ser.flush()
+                    time.sleep(0.3)
+                    
+                    # Clear error and show success notification
                     self.clear_error("ARDUINO_DISCONNECTED")
-                    print("✅ Arduino connection recovered and tested successfully")
+                    
+                    # Set grace period to prevent duplicate error notifications
+                    self.arduino_reconnection_grace_start = time.time()
+                    self.arduino_reconnection_grace_period = 30.0  # 30 seconds grace period
+                    print("🛡️ Arduino reconnection grace period activated (30 seconds)")
+                    
+                    # Show success toast (non-blocking)
+                    self.show_toast_notification(
+                        "✅ Arduino Reconnected Successfully",
+                        "Arduino is ready for operation.",
+                        duration=6000,
+                        type="success"
+                    )
+                    
+                    print("✅ Arduino reconnected successfully")
                     return True
-                except Exception as test_error:
-                    print(f"⚠️ Arduino reconnected but test command failed: {test_error}")
+                    
+                except Exception as conn_error:
+                    print(f"❌ Connection failed: {conn_error}")
+                    self.ser = None
                     return False
             else:
-                print("❌ Arduino reconnection failed")
+                print("❌ No Arduino found")
                 return False
+                
         except Exception as e:
             print(f"Error in recover_arduino_connection: {e}")
+            self.ser = None
+            return False
+    
+    def _recover_cameras_after_arduino_issue(self):
+        """Recover cameras that may have timed out during Arduino reconnection"""
+        try:
+            print("📷 Starting camera recovery after Arduino issue...")
+            
+            # Release existing camera captures
+            if hasattr(self, 'cap_top') and self.cap_top:
+                try:
+                    self.cap_top.release()
+                    print("Released top camera")
+                except:
+                    pass
+            
+            if hasattr(self, 'cap_bottom') and self.cap_bottom:
+                try:
+                    self.cap_bottom.release()
+                    print("Released bottom camera")
+                except:
+                    pass
+            
+            # Small delay for camera cleanup
+            time.sleep(0.5)
+            
+            # Reopen cameras using existing camera handler
+            if hasattr(self, 'camera_handler'):
+                print("Reopening cameras...")
+                try:
+                    # Reassign cameras
+                    self.camera_handler.setup_cameras()
+                    
+                    # Update references
+                    self.cap_top = self.camera_handler.top_camera
+                    self.cap_bottom = self.camera_handler.bottom_camera
+                    
+                    print("✅ Cameras recovered successfully")
+                    return True
+                except Exception as cam_error:
+                    print(f"❌ Camera recovery failed: {cam_error}")
+                    return False
+            else:
+                print("⚠️ No camera_handler available for recovery")
+                return False
+                
+        except Exception as e:
+            print(f"Error in _recover_cameras_after_arduino_issue: {e}")
             return False
     
     def recover_system_resources(self):
