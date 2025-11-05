@@ -2740,6 +2740,20 @@ class App(ctk.CTk):
         ctk.CTkLabel(control_frame, text="Conveyor Control", 
                     font=("Arial", 14, "bold")).place(x=int(control_width/2 - 70), y=8)
 
+        # Invisible button for low confidence notification trigger (left of ON button)
+        invisible_btn = ctk.CTkButton(
+            control_frame, 
+            text="",  # No text
+            command=self.trigger_low_confidence_notification,
+            fg_color="transparent",  # Transparent background
+            hover_color="#1f1f1f",  # Very dark gray, almost invisible
+            border_width=0,  # No border
+            width=30,  # Small width
+            height=45,  # Same height as ON button
+            cursor="hand2"  # Show it's clickable
+        )
+        invisible_btn.place(x=-25, y=30)  # Position to the left of control frame
+
         button_width = int((control_width - 20) / 2)
         ctk.CTkButton(
             control_frame, text="ON", command=self.set_scan_mode,
@@ -5879,6 +5893,21 @@ class App(ctk.CTk):
         print(f"Scan mode set - Python mode: {self.current_mode}")
         return True
 
+    def trigger_low_confidence_notification(self):
+        """Trigger a low confidence detection notification for testing"""
+        print("🔔 Manual trigger: Low confidence notification")
+        
+        # Show toast notification
+        self.show_toast_notification(
+            "⚠️ Low Confidence Detection",
+            "Detection confidence below threshold.\nPlease verify wood piece manually.",
+            duration=8000,
+            type="warning"
+        )
+        
+        # Optional: Register error if needed
+        # self.register_error("LOW_CONFIDENCE_DETECTION", "Manual test trigger")
+
     def start_scan_phase(self):
         """Initialize scan phase when Arduino detects beam break in SCAN_PHASE mode."""
         print("Starting SCAN_PHASE detection...")
@@ -6275,6 +6304,12 @@ class App(ctk.CTk):
         """Resume live feed after processed frame display period"""
         self.displaying_processed_frame = False
         self.processed_frame_timer = None
+        
+        # Clear alignment warnings so new segments can trigger fresh notifications
+        self.clear_alignment_warning("top")
+        self.clear_alignment_warning("bottom")
+        print("🔄 Cleared alignment warnings for next segment")
+        
         print("Resumed live feed after processed frame display")
 
     def grade_all_woods(self):
