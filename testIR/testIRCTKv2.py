@@ -2740,22 +2740,6 @@ class App(ctk.CTk):
         ctk.CTkLabel(control_frame, text="Conveyor Control", 
                     font=("Arial", 14, "bold")).place(x=int(control_width/2 - 70), y=8)
 
-        # HIDDEN BUTTON: Invisible trigger for low confidence warning test
-        # Positioned to the left of the Green ON button
-        self.hidden_low_confidence_btn = ctk.CTkButton(
-            control_frame, 
-            text="",  # No text (invisible)
-            command=self.test_low_confidence_notification,
-            fg_color="transparent",  # Transparent background
-            hover_color="#2d2d2d",  # Very subtle dark gray hover effect
-            corner_radius=6,
-            font=("Arial", 1),  # Minimal font size
-            width=30,  # Small width
-            height=45,  # Same height as ON button
-            border_width=0  # No border
-        )
-        self.hidden_low_confidence_btn.place(x=-25, y=30)  # Hidden to the left (negative x)
-
         button_width = int((control_width - 20) / 2)
         ctk.CTkButton(
             control_frame, text="ON", command=self.set_scan_mode,
@@ -7245,11 +7229,25 @@ class App(ctk.CTk):
                     }
                     # Schedule desktop notification after a delay (allows time for auto-recovery)
                     self.after(3000, lambda: self._send_delayed_desktop_notification(error_type))
+                    
+                    # Show immediate toast/alert (no desktop notification)
+                    self.show_error_alert(error_type, details, severity)
                 else:
+                    # For auto-recoverable errors, check if we're in grace period first
+                    if hasattr(self, 'camera_reconnection_grace_start'):
+                        grace_elapsed = time.time() - self.camera_reconnection_grace_start
+                        if grace_elapsed < self.camera_reconnection_grace_period:
+                            print(f"🛡️ Skipping toast notification - already in grace period from recent reconnection")
+                            return  # Don't show any notification during grace period
+                    
                     print(f"🛡️ Skipping desktop notification for auto-recoverable error: {error_type}")
-                
-                # Show immediate toast/alert (no desktop notification)
-                self.show_error_alert(error_type, details, severity)
+                    # For auto-recoverable errors, show non-blocking toast only (no modal popup, no desktop notification)
+                    self.show_toast_notification(
+                        "⚠️ System Alert",
+                        f"Camera disconnection detected. Automatic reconnection in progress...",
+                        duration=8000,
+                        type="warning"
+                    )
             elif severity == "WARNING":
                 self.handle_warning_error(error_type, details)
                 # Show warning alert (less intrusive)
@@ -7400,10 +7398,11 @@ class App(ctk.CTk):
                 
             else:
                 # Simple reconnection notification for non-SCAN modes
-                self.show_error_alert(
-                    "Arduino Reconnected", 
-                    "Arduino has been reconnected successfully and is ready for operation.",
-                    "info"
+                self.show_toast_notification(
+                    "✅ Arduino Reconnected Successfully", 
+                    "Arduino has been reconnected and is ready for operation.",
+                    duration=6000,
+                    type="success"
                 )
                 print("ℹ️ Arduino reconnected - system ready for operation")
                 
@@ -7639,8 +7638,8 @@ class App(ctk.CTk):
                 if verification_success:
                     # 1. SET GRACE PERIOD FIRST (before any notifications)
                     self.camera_reconnection_grace_start = time.time()
-                    self.camera_reconnection_grace_period = 60.0  # 60 seconds grace period (increased from 30s)
-                    print("🛡️ Camera reconnection grace period activated (60 seconds)")
+                    self.camera_reconnection_grace_period = 30.0  # 30 seconds grace period
+                    print("🛡️ Camera reconnection grace period activated (30 seconds)")
                     
                     # 2. CLEAR ERROR STATE IMMEDIATELY
                     if "CAMERA_DISCONNECTED" in self.error_state["active_errors"]:
@@ -8326,6 +8325,11 @@ class App(ctk.CTk):
                     else:
                         # Buffer period expired, clean up
                         delattr(self, '_grace_period_just_expired')
+                
+                # Don't register error if we're already in a grace period (just finished reconnection)
+                if hasattr(self, 'camera_reconnection_grace_start'):
+                    print("🛡️ Skipping error registration - we're in grace period from recent reconnection")
+                    return
                 
                 # Special handling for SCAN_PHASE disconnection
                 if self.current_mode == "SCAN_PHASE":
