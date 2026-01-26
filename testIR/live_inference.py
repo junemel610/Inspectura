@@ -32,21 +32,21 @@ WOOD_PALLET_WIDTH_MM = 0          # Global variable for current detected wood wi
 ROI_COORDINATES = {
     "top": {
         "x1": 345,  # Left boundary - exclude left equipment
-        "y1": 0,    # Top boundary
+        "y1": 100,    # Top boundary
         "x2": 880,  # Right boundary - exclude right equipment
-        "y2": 720   # Bottom boundary - focus on wood area
+        "y2": 620   # Bottom boundary - focus on wood area
     },
     "bottom": {
         "x1": 350,  # Left boundary for bottom camera
-        "y1": 0,    # Top boundary
+        "y1": 100,    # Top boundary
         "x2": 965,  # Right boundary
-        "y2": 720   # Bottom boundary
+        "y2": 620   # Bottom boundary
     }
 }
 
 # Model Configuration
 MODEL_NAME = "NonAugmentDefects--640x640_quant_hailort_hailo8_1"
-MODEL_PATH = "/home/inspectura/Desktop/InspecturaGUI/models/NonAugmentDefects--640x640_quant_hailort_hailo8_1"
+MODEL_PATH = "/home/inspectura/Desktop/Inspectura/models/NonAugmentDefects--640x640_quant_hailort_hailo8_1"
 INFERENCE_HOST = "@local"
 
 # Detection Thresholds
@@ -100,17 +100,17 @@ class ColorWoodDetector:
         # Wood color profiles (RGB ranges)
         self.wood_color_profiles = {
             'top_panel': {
-                'rgb_lower': np.array([160, 160, 160]),
-                'rgb_upper': np.array([225, 220, 210])
+                'rgb_lower': np.array([110, 110, 110]),
+                'rgb_upper': np.array([200, 200, 200])
             },
             'bottom_panel': {
                 'rgb_lower': np.array([70, 70, 85]),
-                'rgb_upper': np.array([225, 220, 210])
+                'rgb_upper': np.array([190, 190, 200])
             }
         }
         
         # Detection parameters (from rgb_wood_detector.py)
-        self.min_contour_area = 1000
+        self.min_contour_area = 10000       # Increased from 1000 to reject small regions
         self.max_contour_area = 500000    # From rgb_wood_detector.py (reduced from 2000000)
         self.min_aspect_ratio = 1.0       # From rgb_wood_detector.py (tightened from 1.5)
         self.max_aspect_ratio = 10.0
@@ -136,6 +136,46 @@ class ColorWoodDetector:
             return width_px / self.pixel_per_mm_top
         else:
             return width_px / self.pixel_per_mm_bottom
+    
+    def filter_largest_mask_region(self, mask: np.ndarray, min_area_ratio: float = 0.10) -> np.ndarray:
+        """Keep only the largest contiguous masked region, filter out noise
+        
+        Args:
+            mask: Binary mask
+            min_area_ratio: Minimum area ratio (relative to image size) to keep (default 10%)
+        
+        Returns:
+            Filtered mask with only the largest region
+        """
+        if mask is None or mask.size == 0:
+            return mask
+        
+        # Find all contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            return mask
+        
+        # Find the largest contour by area
+        largest_contour = max(contours, key=cv2.contourArea)
+        largest_area = cv2.contourArea(largest_contour)
+        
+        # Calculate minimum area threshold
+        total_pixels = mask.shape[0] * mask.shape[1]
+        min_area = total_pixels * min_area_ratio
+        
+        # Only keep if it's large enough
+        if largest_area < min_area:
+            print(f"⚠️  Largest region ({largest_area:.0f} px) below threshold ({min_area:.0f} px)")
+            return np.zeros_like(mask)
+        
+        # Create new mask with only the largest region
+        filtered_mask = np.zeros_like(mask)
+        cv2.drawContours(filtered_mask, [largest_contour], -1, 255, -1)
+        
+        print(f"✂️  Filtered mask: kept largest region ({largest_area:.0f} px), removed {len(contours)-1} smaller regions")
+        
+        return filtered_mask
     
     def detect_wood_by_color(self, image: np.ndarray, profile_names: List[str] = None) -> Tuple[np.ndarray, List[Dict]]:
         """Detect wood using color-first approach with edge enhancement (from rgb_wood_detector.py)"""
@@ -198,6 +238,14 @@ class ColorWoodDetector:
             post_morph_pixels = cv2.countNonZero(enhanced_mask)
             post_morph_percentage = (post_morph_pixels / total_pixels) * 100
             print(f"🔧 Post-morph enhanced mask: {post_morph_pixels} pixels ({post_morph_percentage:.1f}%)")
+            
+            # Filter to keep only the largest contiguous region (remove noise)
+            # Using 10% threshold - must be at least 10% of image area to be considered wood
+            enhanced_mask = self.filter_largest_mask_region(enhanced_mask, min_area_ratio=0.10)
+            
+            filtered_pixels = cv2.countNonZero(enhanced_mask)
+            filtered_percentage = (filtered_pixels / total_pixels) * 100
+            print(f"✂️  Filtered mask (largest only): {filtered_pixels} pixels ({filtered_percentage:.1f}%)")
             
             # Additional logging for dominant colors (from rgb_wood_detector.py)
             rgb_flat = rgb.reshape(-1, 3)
@@ -349,8 +397,9 @@ class ColorWoodDetector:
         
         return min(confidence, 1.0)
     
-    def generate_auto_roi(self, wood_candidates: List[Dict], image_shape: Tuple) -> Optional[Tuple[int, int, int, int]]:
-        """Generate automatic ROI based on detected wood"""
+    def generate_auto_roi(self, wood_candidates: List[Dict], image_shape: Tuple, 
+                          yellow_roi: Tuple[int, int, int, int] = None) -> Optional[Tuple[int, int, int, int]]:
+        """Generate automatic ROI based on detected wood, constrained within Yellow ROI"""
         if not wood_candidates:
             return None
         
@@ -358,14 +407,30 @@ class ColorWoodDetector:
         best_candidate = wood_candidates[0]
         x, y, w, h = best_candidate['bbox']
         
-        # Add some padding around the detected wood
-        padding_x = int(w * 0.1)
-        padding_y = int(h * 0.1)
+        # Minimal padding (reduced from 10% to 3% to stay tight)
+        padding_x = int(w * 0.03)
+        padding_y = int(h * 0.03)
         
         roi_x1 = max(0, x - padding_x)
         roi_y1 = max(0, y - padding_y)
         roi_x2 = min(image_shape[1], x + w + padding_x)
         roi_y2 = min(image_shape[0], y + h + padding_y)
+        
+        # Constrain within Yellow ROI if provided
+        if yellow_roi is not None:
+            yellow_x, yellow_y, yellow_w, yellow_h = yellow_roi
+            yellow_x2 = yellow_x + yellow_w
+            yellow_y2 = yellow_y + yellow_h
+            
+            # Clip to Yellow ROI boundaries
+            roi_x1 = max(roi_x1, yellow_x)
+            roi_y1 = max(roi_y1, yellow_y)
+            roi_x2 = min(roi_x2, yellow_x2)
+            roi_y2 = min(roi_y2, yellow_y2)
+        
+        # Ensure valid dimensions
+        if roi_x2 <= roi_x1 or roi_y2 <= roi_y1:
+            return None
         
         return (roi_x1, roi_y1, roi_x2 - roi_x1, roi_y2 - roi_y1)
     
@@ -406,12 +471,25 @@ class ColorWoodDetector:
             mask_percentage = (mask_pixels / total_pixels) * 100
             print(f"🎨 Color mask: {mask_pixels} pixels ({mask_percentage:.1f}%)")
             
+            # Reject if masked area is too small (less than 8% of image)
+            if mask_percentage < 8.0:
+                print(f"⚠️  Masked area too small ({mask_percentage:.1f}% < 8.0%), rejecting as wood")
+                return {
+                    'wood_detected': False,
+                    'wood_count': 0,
+                    'wood_candidates': [],
+                    'auto_roi': None,
+                    'color_mask': color_mask,
+                    'confidence': 0.0,
+                    'rejection_reason': 'masked_area_too_small'
+                }
+            
             # Find rectangular contours
             wood_candidates = self.detect_rectangular_contours(color_mask, camera)
             print(f"📐 Found {len(wood_candidates)} wood candidates")
             
-            # Generate automatic ROI
-            auto_roi = self.generate_auto_roi(wood_candidates, image.shape)
+            # Generate automatic ROI (constrained by the input ROI if provided)
+            auto_roi = self.generate_auto_roi(wood_candidates, image.shape, yellow_roi=roi)
             
             # Update wood width if detected
             if wood_candidates:
@@ -505,8 +583,8 @@ def bbox_inside_roi(bbox, roi, overlap_threshold=0.7):
         bool: True if bbox has significant overlap with ROI, False otherwise
     """
     if roi is None:
-        # If no ROI defined, accept all detections (fallback)
-        return True
+        # If no wood ROI defined (no wood detected), REJECT all detections
+        return False
     
     # Unpack ROI
     roi_x, roi_y, roi_w, roi_h = roi
@@ -701,6 +779,51 @@ def draw_detections(frame, detections, scale_x=1.0, scale_y=1.0):
     
     return annotated
 
+def create_masked_overlay(frame, mask, alpha=0.4):
+    """
+    Create a highlighted mask overlay on the live camera feed
+    Shows detected wood areas with a semi-transparent green highlight
+    
+    Args:
+        frame: Original camera frame
+        mask: Binary mask (wood detection)
+        alpha: Transparency of the overlay (0.4 = 40% opaque)
+    
+    Returns:
+        Frame with highlighted wood areas
+    """
+    if mask is None:
+        return frame
+    
+    try:
+        if mask.size == 0:
+            return frame
+    except:
+        return frame
+    
+    # Create colored overlay (green for wood detection)
+    overlay = frame.copy()
+    
+    # Resize mask to match frame if needed
+    if mask.shape[:2] != frame.shape[:2]:
+        mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+    
+    # Create a green overlay layer
+    green_overlay = np.zeros_like(frame)
+    green_overlay[:, :] = (0, 255, 0)  # Green color
+    
+    # Apply the mask: blend green where mask is active
+    mask_3ch = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR) if len(mask.shape) == 2 else mask
+    mask_3ch = mask_3ch.astype(float) / 255.0  # Normalize to 0-1
+    
+    # Blend: original * (1 - alpha * mask) + green * (alpha * mask)
+    overlay = cv2.addWeighted(frame, 1.0, green_overlay, 0, 0)
+    overlay = np.where(mask_3ch > 0, 
+                      cv2.addWeighted(frame, 1 - alpha, green_overlay, alpha, 0),
+                      frame)
+    
+    return overlay.astype(np.uint8)
+
 def add_info_overlay(frame, fps, detection_count, camera_name="Camera"):
     """Add FPS and detection info overlay"""
     overlay = frame.copy()
@@ -737,6 +860,27 @@ class LiveInference:
         self.use_top = use_top
         self.use_bottom = use_bottom
         self.enable_wood_detection = enable_wood_detection
+        
+        # Camera settings
+        self.top_camera_settings = {
+            'brightness': -80,
+            'contrast': 32,
+            'saturation': 64,
+            'hue': 0,
+            'exposure': -6,
+            'white_balance': 4520,
+            'gain': 0
+        }
+        self.bottom_camera_settings = {
+            'brightness': 25,
+            'contrast': 125,
+            'saturation': 125,
+            'hue': 0,
+            'exposure': -6,
+            'white_balance': 4850,
+            'gain': 0,
+            'backlight_compensation': 1
+        }
         
         print("="*60)
         print("Live Wood Defect Detection Inference")
@@ -776,6 +920,8 @@ class LiveInference:
             
             if self.cap_top.isOpened():
                 print("✅ Top camera opened successfully!")
+                # Apply camera settings
+                self.apply_camera_settings(self.cap_top, self.top_camera_settings, "top")
             else:
                 print("❌ Failed to open top camera")
                 self.use_top = False
@@ -788,6 +934,8 @@ class LiveInference:
             
             if self.cap_bottom.isOpened():
                 print("✅ Bottom camera opened successfully!")
+                # Apply camera settings
+                self.apply_camera_settings(self.cap_bottom, self.bottom_camera_settings, "bottom")
             else:
                 print("❌ Failed to open bottom camera")
                 self.use_bottom = False
@@ -803,12 +951,54 @@ class LiveInference:
         self.frame_count_bottom = 0
         self.start_time = time.time()
         
+        # Store masks for visualization
+        self.last_mask_top = None
+        self.last_mask_bottom = None
+        
         print("\n" + "="*60)
         print("🚀 Starting live inference...")
+        print("📺 4-View Grid: Detection (top row) | Masked (bottom row)")
         print("Press 'q' to quit")
         print("Press 's' to save annotated frame")
         print("Press 'd' to save debug frames (original)")
         print("="*60 + "\n")
+    
+    def apply_camera_settings(self, cap, settings, camera_name):
+        """
+        Apply camera settings to a VideoCapture object
+        
+        Args:
+            cap: cv2.VideoCapture object
+            settings: Dictionary of camera settings
+            camera_name: Name of camera for logging
+        """
+        print(f"\n🎬 Applying settings to {camera_name} camera...")
+        
+        setting_map = {
+            'brightness': cv2.CAP_PROP_BRIGHTNESS,
+            'contrast': cv2.CAP_PROP_CONTRAST,
+            'saturation': cv2.CAP_PROP_SATURATION,
+            'hue': cv2.CAP_PROP_HUE,
+            'exposure': cv2.CAP_PROP_EXPOSURE,
+            'white_balance': cv2.CAP_PROP_WHITE_BALANCE_BLUE_U,
+            'gain': cv2.CAP_PROP_GAIN,
+            'backlight_compensation': cv2.CAP_PROP_BACKLIGHT
+        }
+        
+        for setting_name, value in settings.items():
+            if setting_name in setting_map:
+                prop = setting_map[setting_name]
+                
+                # Special handling for white balance (needs to be enabled first)
+                if setting_name == 'white_balance':
+                    cap.set(cv2.CAP_PROP_AUTO_WB, 0)  # Disable auto white balance
+                
+                success = cap.set(prop, value)
+                if success:
+                    actual_value = cap.get(prop)
+                    print(f"  ✅ {setting_name}: {value} (actual: {actual_value:.1f})")
+                else:
+                    print(f"  ⚠️  {setting_name}: Failed to set to {value}")
     
     def process_frame(self, frame, camera_name="top", enable_roi=True):
         """
@@ -874,7 +1064,16 @@ class LiveInference:
             wood_detected = wood_result['wood_detected']
         
         # STEP 2: Defect Detection on Full Frame (640x640 with padding)
-        # Always run on full frame - model was trained on full camera feeds
+        # Only run if wood was detected (no point detecting defects without wood)
+        if not wood_detected and self.wood_detector is not None and enable_roi:
+            print(f"⏭️  Skipping defect detection - no wood detected on {camera_name}")
+            # Return frame with ROI overlay only
+            annotated = frame.copy()
+            if enable_roi:
+                annotated = draw_roi_overlay(annotated, camera_name, roi_enabled=True)
+            return annotated, 0, wood_result.get('color_mask') if wood_result else None
+        
+        # Run defect detection on full frame - model was trained on full camera feeds
         frame_640, scale, pad_x, pad_y = resize_to_640(frame)
         
         # Run inference
@@ -1001,23 +1200,35 @@ class LiveInference:
         # Note: Coordinates already adjusted in process_frame, no scaling needed
         annotated = draw_detections(annotated, final_detections)
         
-        return annotated, len(final_detections)
+        # Store mask for visualization
+        color_mask = wood_result.get('color_mask') if wood_result is not None else None
+        
+        return annotated, len(final_detections), color_mask
     
     def run(self):
-        """Main inference loop"""
+        """Main inference loop with 2x2 grid display"""
         # Get ROI setting (set in main)
         enable_roi = getattr(self, 'enable_roi', True)
+        
+        # Create window name
+        window_name = "Wood Defect Detection - 4 View Grid"
         
         try:
             while True:
                 current_time = time.time()
+                
+                # Initialize views
+                view_top_detection = None
+                view_bottom_detection = None
+                view_top_masked = None
+                view_bottom_masked = None
                 
                 # Process top camera
                 if self.use_top and self.cap_top is not None:
                     ret_top, frame_top = self.cap_top.read()
                     if ret_top:
                         # Process frame with ROI setting
-                        annotated_top, count_top = self.process_frame(
+                        annotated_top, count_top, mask_top = self.process_frame(
                             frame_top, "top", enable_roi=enable_roi
                         )
                         
@@ -1027,16 +1238,18 @@ class LiveInference:
                         if elapsed > 1.0:
                             self.fps_top = self.frame_count_top / elapsed
                         
-                        # Add overlay
-                        display_top = add_info_overlay(
-                            annotated_top, self.fps_top, count_top, "Top Camera"
+                        # Create detection view (upper left)
+                        view_top_detection = add_info_overlay(
+                            annotated_top, self.fps_top, count_top, "Top - Detection"
                         )
+                        view_top_detection = cv2.resize(view_top_detection, (640, 360), interpolation=cv2.INTER_LINEAR)
                         
-                        # Resize to 360p for display (640x360)
-                        display_top = cv2.resize(display_top, (640, 360), interpolation=cv2.INTER_LINEAR)
-                        
-                        # Show frame
-                        cv2.imshow("Top Camera - Defect Detection", display_top)
+                        # Create masked overlay view (lower left)
+                        masked_overlay = create_masked_overlay(frame_top, mask_top, alpha=0.4)
+                        view_top_masked = add_info_overlay(
+                            masked_overlay, self.fps_top, count_top, "Top - Masked"
+                        )
+                        view_top_masked = cv2.resize(view_top_masked, (640, 360), interpolation=cv2.INTER_LINEAR)
                 
                 # Process bottom camera
                 if self.use_bottom and self.cap_bottom is not None:
@@ -1046,7 +1259,7 @@ class LiveInference:
                         frame_bottom = cv2.flip(frame_bottom, 1)
                         
                         # Process frame with ROI setting
-                        annotated_bottom, count_bottom = self.process_frame(
+                        annotated_bottom, count_bottom, mask_bottom = self.process_frame(
                             frame_bottom, "bottom", enable_roi=enable_roi
                         )
                         
@@ -1056,16 +1269,46 @@ class LiveInference:
                         if elapsed > 1.0:
                             self.fps_bottom = self.frame_count_bottom / elapsed
                         
-                        # Add overlay
-                        display_bottom = add_info_overlay(
-                            annotated_bottom, self.fps_bottom, count_bottom, "Bottom Camera"
+                        # Create detection view (upper right)
+                        view_bottom_detection = add_info_overlay(
+                            annotated_bottom, self.fps_bottom, count_bottom, "Bottom - Detection"
                         )
+                        view_bottom_detection = cv2.resize(view_bottom_detection, (640, 360), interpolation=cv2.INTER_LINEAR)
                         
-                        # Resize to 360p for display (640x360)
-                        display_bottom = cv2.resize(display_bottom, (640, 360), interpolation=cv2.INTER_LINEAR)
-                        
-                        # Show frame
-                        cv2.imshow("Bottom Camera - Defect Detection", display_bottom)
+                        # Create masked overlay view (lower right)
+                        masked_overlay = create_masked_overlay(frame_bottom, mask_bottom, alpha=0.4)
+                        view_bottom_masked = add_info_overlay(
+                            masked_overlay, self.fps_bottom, count_bottom, "Bottom - Masked"
+                        )
+                        view_bottom_masked = cv2.resize(view_bottom_masked, (640, 360), interpolation=cv2.INTER_LINEAR)
+                
+                # Create 2x2 grid layout
+                # If a camera is not available, use black placeholder
+                black_frame = np.zeros((360, 640, 3), dtype=np.uint8)
+                cv2.putText(black_frame, "Camera Not Available", (180, 180),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (128, 128, 128), 2)
+                
+                # Upper row: Detection views
+                upper_left = view_top_detection if view_top_detection is not None else black_frame
+                upper_right = view_bottom_detection if view_bottom_detection is not None else black_frame
+                upper_row = np.hstack([upper_left, upper_right])
+                
+                # Lower row: Masked views
+                lower_left = view_top_masked if view_top_masked is not None else black_frame
+                lower_right = view_bottom_masked if view_bottom_masked is not None else black_frame
+                lower_row = np.hstack([lower_left, lower_right])
+                
+                # Combine rows into final grid
+                grid = np.vstack([upper_row, lower_row])
+                
+                # Add separating lines for clarity
+                # Vertical line
+                cv2.line(grid, (640, 0), (640, 720), (255, 255, 255), 2)
+                # Horizontal line
+                cv2.line(grid, (0, 360), (1280, 360), (255, 255, 255), 2)
+                
+                # Display the grid
+                cv2.imshow(window_name, grid)
                 
                 # Reset FPS counter every second
                 if current_time - self.start_time > 1.0:
@@ -1080,18 +1323,13 @@ class LiveInference:
                     print("\n👋 Quitting...")
                     break
                 elif key == ord('s'):
-                    # Save current frames
+                    # Save the entire grid
                     timestamp = time.strftime("%Y%m%d_%H%M%S")
-                    if self.use_top and ret_top:
-                        filename = f"top_camera_{timestamp}.jpg"
-                        cv2.imwrite(filename, display_top)
-                        print(f"💾 Saved: {filename}")
-                    if self.use_bottom and ret_bottom:
-                        filename = f"bottom_camera_{timestamp}.jpg"
-                        cv2.imwrite(filename, display_bottom)
-                        print(f"💾 Saved: {filename}")
+                    filename = f"grid_view_{timestamp}.jpg"
+                    cv2.imwrite(filename, grid)
+                    print(f"💾 Saved grid: {filename}")
                 elif key == ord('d'):
-                    # Save debug frames (original + what model sees)
+                    # Save debug frames (original)
                     timestamp = time.strftime("%Y%m%d_%H%M%S")
                     if self.use_top and ret_top:
                         cv2.imwrite(f"debug_original_top_{timestamp}.jpg", frame_top)
