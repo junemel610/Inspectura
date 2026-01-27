@@ -351,7 +351,7 @@ class CameraHandler:
         self.top_camera_device = None  # Will be set to successful device path
         self.bottom_camera_device = None  # Will be set to successful device path
         self.top_camera_settings = {
-            'brightness': -80,
+            'brightness': -50,
             'contrast': 32,
             'saturation': 64,
             'hue': 0,
@@ -1253,7 +1253,7 @@ class ColorWoodDetector:
         
         self.wood_color_profiles = {
             'top_panel': {
-                'rgb_lower': np.array([160, 160, 160]),  # BGR
+                'rgb_lower': np.array([110, 110, 110]),  # BGR
                 'rgb_upper': np.array([225, 220, 210]),
                 'name': 'Top Panel Wood'
             },
@@ -2734,6 +2734,7 @@ class App(ctk.CTk):
         self.defect_labels = {}
         self.defect_scrolls = {}  # Store scrollable frames
         self.defect_containers = {}  # Store column containers inside scrollable frames
+        self.defect_image_references = []  # Keep strong references to prevent garbage collection
 
         for i, title in enumerate(defect_titles):
             x_pos = padding + i * (defect_panel_width + padding)
@@ -2947,6 +2948,9 @@ class App(ctk.CTk):
 
     def clear_defect_displays(self):
         """Clear all defect displays for a new wood piece"""
+        # Clear image references to allow garbage collection
+        self.defect_image_references.clear()
+        
         for key, container in self.defect_containers.items():
             # Destroy all existing widgets in the container
             for widget in container.winfo_children():
@@ -3030,20 +3034,27 @@ class App(ctk.CTk):
             ctk_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image,
                                     size=(display_width, display_height))
             
-            # Create container frame for image + size
+            # Store reference to prevent garbage collection
+            self.defect_image_references.append(ctk_image)
+            
+            # Create container frame for image + size with fixed width
             item_frame = ctk.CTkFrame(container, fg_color="white", corner_radius=6,
                                      border_width=2, border_color="#cccccc")
             item_frame.pack(pady=5, padx=2, fill="x")
+            item_frame.pack_propagate(True)  # Allow frame to adjust to content
             
             # Image label
             image_label = ctk.CTkLabel(item_frame, image=ctk_image, text="")
             image_label.image = ctk_image  # Keep reference
-            image_label.pack(pady=5)
+            image_label.pack(pady=5, anchor="center")
             
             # Size label (large font)
             size_label = ctk.CTkLabel(item_frame, text=f"{size_mm:.2f} mm",
                                      font=("Arial", 16, "bold"), text_color="black")
-            size_label.pack(pady=(0, 5))
+            size_label.pack(pady=(0, 5), anchor="center")
+            
+            # Force update to ensure proper layout
+            container.update_idletasks()
             
             print(f"✅ Added {defect_type} ({size_mm:.2f}mm) to {panel_title} ({camera_name.upper()})")
             
