@@ -2554,6 +2554,11 @@ class App(ctk.CTk):
         self.segment_defects = {"top": [], "bottom": []}
         self.scan_session_start_time = None
         self.scan_session_folder = None
+        
+        # Defect crop saving variables
+        self.detection_session_timestamp = None  # Format: "MMDDYYYY:HHMM"
+        self.defect_counters = {"top": 0, "bottom": 0}  # Per-panel defect counters
+        self.base_detections_path = "/home/inspectura/Desktop/Inspectura/testIR/testIR/Detections"
 
         # Automatic detection state (triggered by IR beam)
         self.live_detection_var = tk.BooleanVar(value=False) # For live inference mode
@@ -4174,6 +4179,13 @@ class App(ctk.CTk):
             "final_grade": None
         }
         self.detection_frames = []
+        
+        # Initialize session timestamp for defect crop saving (if not already set)
+        if self.detection_session_timestamp is None:
+            self.detection_session_timestamp = datetime.now().strftime("%m%d%Y:%H%M")
+        
+        # Reset defect counters for new wood piece
+        self.defect_counters = {"top": 0, "bottom": 0}
 
 
         # Clear trackers for new session
@@ -4203,6 +4215,9 @@ class App(ctk.CTk):
         self.auto_detection_active = False
         self._in_active_inference = False  # Clear inference flag to resume normal UI updates
         self.detection_session_data["end_time"] = datetime.now()
+        
+        # Increment wood counter after detection completes
+        self.current_wood_number += 1
 
         # Collect ALL detections from the entire session (every frame during the detection period)
         all_measurements = []
@@ -4379,6 +4394,93 @@ class App(ctk.CTk):
         except Exception as e:
             print(f"❌ Error saving detection frame: {e}")
 
+    def save_defect_crop(self, frame, bbox, defect_class, size_mm, camera_name):
+        """
+        Save cropped bounding box of detected defect
+        
+        Args:
+            frame: Original frame image (BGR format)
+            bbox: Bounding box coordinates [x1, y1, x2, y2]
+            defect_class: Type of defect (e.g., "Dead_Knot", "Sound_Knot")
+            size_mm: Size of defect in millimeters
+            camera_name: "top" or "bottom"
+        
+        Returns:
+            filepath: Path to saved image file, or None if failed
+        """
+        try:
+            # Initialize session timestamp if not set
+            if self.detection_session_timestamp is None:
+                self.detection_session_timestamp = datetime.now().strftime("%m%d%Y:%H%M")
+            
+            # Increment defect counter for this panel
+            self.defect_counters[camera_name] += 1
+            defect_number = self.defect_counters[camera_name]
+            
+            # Format panel name (Top Panel or Bottom Panel)
+            panel_name = f"{camera_name.capitalize()} Panel"
+            
+            # Format defect class name (convert underscore to nothing for cleaner name)
+            # e.g., "Dead_Knot" -> "DeadKnot"
+            defect_class_formatted = defect_class.replace("_", "")
+            
+            # Format size (round to nearest integer for filename)
+            size_formatted = f"{int(round(size_mm))}mm"
+            
+            # Create filename: "DEFECTCLASS-NO.-SIZEmm.jpg"
+            filename = f"{defect_class_formatted}-{defect_number}-{size_formatted}.jpg"
+            
+            # Create directory path
+            # Format: /testIR/testIR/Detections/MMDDYYYY:HHMMH-Session/Wood (NO.)/PANEL/WoodDefects/
+            session_folder = f"{self.detection_session_timestamp}H-Session"
+            wood_folder = f"Wood ({self.current_wood_number})"
+            
+            full_path = os.path.join(
+                self.base_detections_path,
+                session_folder,
+                wood_folder,
+                panel_name,
+                "WoodDefects"
+            )
+            
+            # Create directory if it doesn't exist
+            os.makedirs(full_path, exist_ok=True)
+            
+            # Extract bounding box coordinates
+            x1, y1, x2, y2 = [int(coord) for coord in bbox]
+            
+            # Ensure coordinates are within frame bounds
+            h, w = frame.shape[:2]
+            x1 = max(0, min(x1, w))
+            y1 = max(0, min(y1, h))
+            x2 = max(x1, min(x2, w))
+            y2 = max(y1, min(y2, h))
+            
+            # Check if crop area is valid
+            if x2 <= x1 or y2 <= y1:
+                print(f"⚠️  Invalid crop area for {defect_class}: bbox={bbox}")
+                return None
+            
+            # Crop the defect region from frame
+            defect_crop = frame[y1:y2, x1:x2]
+            
+            # Check if crop is not empty
+            if defect_crop.size == 0:
+                print(f"⚠️  Empty crop for {defect_class}: bbox={bbox}")
+                return None
+            
+            # Save the cropped image
+            filepath = os.path.join(full_path, filename)
+            cv2.imwrite(filepath, defect_crop)
+            
+            print(f"✅ Saved defect crop: {filepath}")
+            return filepath
+            
+        except Exception as e:
+            print(f"❌ Error saving defect crop: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def apply_roi(self, frame, camera_name, custom_roi_coords=None):
         """Apply Region of Interest (ROI) to frame for focused detection"""
@@ -5908,6 +6010,13 @@ class App(ctk.CTk):
         self.scan_phase_active = True
         self.current_wood_number += 1  # Increment for each new wood piece
         
+        # Initialize session timestamp for defect crop saving (if not already set)
+        if self.detection_session_timestamp is None:
+            self.detection_session_timestamp = datetime.now().strftime("%m%d%Y:%H%M")
+        
+        # Reset defect counters for new wood piece
+        self.defect_counters = {"top": 0, "bottom": 0}
+        
         # Update the wood counter display
         self.update_wood_counter_display()
         
@@ -6849,6 +6958,11 @@ class App(ctk.CTk):
                     final_defect_dict[defect_type] += 1
                 else:
                     final_defect_dict[defect_type] = 1
+                
+                # Save cropped bounding box for this defect
+                # Save during both auto detection and scan phase (when wood piece is being scanned)
+                if (self.auto_detection_active or self.scan_phase_active) and self.current_wood_number > 0:
+                    self.save_defect_crop(frame, bbox, defect_type, size_mm, camera_name)
 
             # Create custom annotated frame with defect names and size measurements
             annotated_frame = self.draw_custom_annotations(frame, filtered_detections, camera_name)
