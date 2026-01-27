@@ -2213,14 +2213,14 @@ class ColorWoodDetector:
             # Top lane label
             top_label_x = (top_lane['x1'] + top_lane['x2']) // 2 - 70
             top_label_y = (top_lane['y1'] + top_lane['y2']) // 2 + 10
-            cv2.putText(overlay_frame, "TOP LANE", 
+            cv2.putText(overlay_frame, "", 
                        (top_label_x, top_label_y), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
             
             # Bottom lane label
             bottom_label_x = (bottom_lane['x1'] + bottom_lane['x2']) // 2 - 90
             bottom_label_y = (bottom_lane['y1'] + bottom_lane['y2']) // 2 + 10
-            cv2.putText(overlay_frame, "BOTTOM LANE", 
+            cv2.putText(overlay_frame, "", 
                        (bottom_label_x, bottom_label_y), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         
@@ -2860,7 +2860,7 @@ class App(ctk.CTk):
         # REPORTS TAB CONTENT
         # =====================
 
-        # Last Graded Report Section - Modern Card Design
+        # Last Graded Report Section - 3-Column Layout
         report_frame = ctk.CTkFrame(self.reports_tab, corner_radius=12, fg_color="#f8f9fa")
         report_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
@@ -2869,20 +2869,62 @@ class App(ctk.CTk):
         header_frame.pack(fill="x", pady=(20, 10))
         ctk.CTkLabel(header_frame, text="Last Graded Report", font=("Arial", 48, "bold"), text_color="#1a1a1a").pack()
 
-        # Scrollable frame for defect details with shadow effect
-        report_scroll = ctk.CTkScrollableFrame(report_frame, fg_color="#ffffff", corner_radius=12)
-        report_scroll.pack(fill="both", expand=True, padx=25, pady=(0, 20))
+        # Main container frame for 3 columns (no scrolling)
+        main_container = ctk.CTkFrame(report_frame, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
-        # Store the scrollable frame for updates
-        self.last_report_container = report_scroll
+        # Configure grid for 3 equal columns
+        main_container.grid_columnconfigure(0, weight=1, uniform="report_col")
+        main_container.grid_columnconfigure(1, weight=1, uniform="report_col")
+        main_container.grid_columnconfigure(2, weight=1, uniform="report_col")
+        main_container.grid_rowconfigure(0, weight=1)
         
-        # Initial placeholder with larger text
-        placeholder_frame = ctk.CTkFrame(report_scroll, fg_color="#e9ecef", corner_radius=15)
-        placeholder_frame.pack(fill="both", expand=True, padx=30, pady=60)
-        ctk.CTkLabel(placeholder_frame, text="No reports available yet",
-                    font=("Arial", 26, "bold"), text_color="#495057").pack(pady=(40, 10))
-        ctk.CTkLabel(placeholder_frame, text="Last graded piece details will appear here",
-                    font=("Arial", 20), text_color="#6c757d").pack(pady=(10, 40))
+        # Column 1: Wood Information
+        wood_info_frame = ctk.CTkFrame(main_container, fg_color="#ffffff", corner_radius=15, border_width=2, border_color="#dee2e6")
+        wood_info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        
+        wood_info_header = ctk.CTkFrame(wood_info_frame, fg_color="#f8f9fa", corner_radius=12)
+        wood_info_header.pack(fill="x", padx=4, pady=4)
+        ctk.CTkLabel(wood_info_header, text="Wood Information", font=("Arial", 26, "bold"), text_color="#495057").pack(pady=10)
+        
+        # Scrollable content for wood info
+        self.wood_info_content = ctk.CTkScrollableFrame(wood_info_frame, fg_color="transparent")
+        self.wood_info_content.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Column 2: Top Panel Defects
+        top_defects_frame = ctk.CTkFrame(main_container, fg_color="#d1ecf1", corner_radius=15, border_width=3, border_color="#0c5460")
+        top_defects_frame.grid(row=0, column=1, sticky="nsew", padx=5)
+        
+        top_defects_header = ctk.CTkFrame(top_defects_frame, fg_color="#17a2b8", corner_radius=12)
+        top_defects_header.pack(fill="x", padx=4, pady=4)
+        ctk.CTkLabel(top_defects_header, text="Top Panel Defects", font=("Arial", 26, "bold"), text_color="white").pack(pady=10)
+        
+        # Scrollable content for top defects
+        self.top_defects_content = ctk.CTkScrollableFrame(top_defects_frame, fg_color="transparent")
+        self.top_defects_content.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Column 3: Bottom Panel Defects
+        bottom_defects_frame = ctk.CTkFrame(main_container, fg_color="#fff3cd", corner_radius=15, border_width=3, border_color="#856404")
+        bottom_defects_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
+        
+        bottom_defects_header = ctk.CTkFrame(bottom_defects_frame, fg_color="#ffc107", corner_radius=12)
+        bottom_defects_header.pack(fill="x", padx=4, pady=4)
+        ctk.CTkLabel(bottom_defects_header, text="Bottom Panel Defects", font=("Arial", 26, "bold"), text_color="#856404").pack(pady=10)
+        
+        # Scrollable content for bottom defects
+        self.bottom_defects_content = ctk.CTkScrollableFrame(bottom_defects_frame, fg_color="transparent")
+        self.bottom_defects_content.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Store references for updates
+        self.last_report_container = main_container
+        
+        # Initial placeholder in wood info
+        ctk.CTkLabel(self.wood_info_content, text="No reports available yet",
+                    font=("Arial", 20, "bold"), text_color="#495057").pack(pady=20)
+        ctk.CTkLabel(self.top_defects_content, text="No defects",
+                    font=("Arial", 18), text_color="#0c5460").pack(pady=20)
+        ctk.CTkLabel(self.bottom_defects_content, text="No defects",
+                    font=("Arial", 18), text_color="#856404").pack(pady=20)
 
         # Live Grading Result Section  
         live_frame = ctk.CTkFrame(self.reports_tab, corner_radius=6)
@@ -4591,14 +4633,14 @@ class App(ctk.CTk):
             # Top lane label
             top_label_x = (top_lane['x1'] + top_lane['x2']) // 2 - 70
             top_label_y = (top_lane['y1'] + top_lane['y2']) // 2 + 10
-            cv2.putText(frame_copy, "TOP LANE", 
+            cv2.putText(frame_copy, "", 
                        (top_label_x, top_label_y), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
             
             # Bottom lane label
             bottom_label_x = (bottom_lane['x1'] + bottom_lane['x2']) // 2 - 90
             bottom_label_y = (bottom_lane['y1'] + bottom_lane['y2']) // 2 + 10
-            cv2.putText(frame_copy, "BOTTOM LANE", 
+            cv2.putText(frame_copy, "", 
                        (bottom_label_x, bottom_label_y), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
@@ -6283,7 +6325,7 @@ class App(ctk.CTk):
         self.update_defects_report_display(wood_number, wood_folder)
 
     def update_defects_report_display(self, wood_number, wood_folder):
-        """Update the defects report textbox in the main GUI"""
+        """Update the defects report in 3-column layout"""
         defects_file_path = os.path.join(wood_folder, "defects.txt")
         
         # Read the defects file
@@ -6294,137 +6336,113 @@ class App(ctk.CTk):
             print(f"Error reading defects file: {e}")
             return
         
-        # Update the last report with modern card-based GUI elements
-        if hasattr(self, 'last_report_container'):
-            # Clear existing widgets
-            for widget in self.last_report_container.winfo_children():
+        # Parse defects content
+        lines = defects_content.strip().split('\n')
+        
+        # Clear all three columns
+        if hasattr(self, 'wood_info_content'):
+            for widget in self.wood_info_content.winfo_children():
                 widget.destroy()
-            
-            # Parse defects content and create GUI elements
-            lines = defects_content.strip().split('\n')
-            
-            # Wood info header card with rounded design
-            info_card = ctk.CTkFrame(self.last_report_container, fg_color="#ffffff", corner_radius=15,
-                                    border_width=2, border_color="#dee2e6")
-            info_card.pack(fill="x", padx=15, pady=(15, 10))
-            
-            # Info title (no emoji)
-            info_header = ctk.CTkFrame(info_card, fg_color="#f8f9fa", corner_radius=12)
-            info_header.pack(fill="x", padx=4, pady=4)
-            ctk.CTkLabel(info_header, text="Wood Information", font=("Arial", 26, "bold"),
-                        text_color="#495057").pack(pady=12)
-            
-            # Wood details - show all lines until we hit "Top Panel Defects"
+        if hasattr(self, 'top_defects_content'):
+            for widget in self.top_defects_content.winfo_children():
+                widget.destroy()
+        if hasattr(self, 'bottom_defects_content'):
+            for widget in self.bottom_defects_content.winfo_children():
+                widget.destroy()
+        
+        # ===== COLUMN 1: WOOD INFORMATION =====
+        if hasattr(self, 'wood_info_content'):
             for line in lines:
                 if "Top Panel Defects:" in line or "Bottom Panel Defects:" in line:
                     break
                 if line.strip():
-                    detail_frame = ctk.CTkFrame(info_card, fg_color="transparent")
-                    detail_frame.pack(fill="x", padx=20, pady=4)
-                    ctk.CTkLabel(detail_frame, text=line.strip(), font=("Arial", 22, "bold"), 
-                               text_color="#212529", anchor="w", justify="left").pack(side="left", fill="x", expand=True, pady=8)
+                    info_label = ctk.CTkLabel(self.wood_info_content, text=line.strip(), 
+                                            font=("Arial", 18, "bold"), text_color="#212529",
+                                            anchor="w", justify="left", wraplength=400)
+                    info_label.pack(fill="x", padx=10, pady=6)
+        
+        # ===== COLUMN 2: TOP PANEL DEFECTS =====
+        if hasattr(self, 'top_defects_content'):
+            defects_found = False
+            in_top_section = False
             
-            # Top Panel Defects Card (case-insensitive check)
-            if "TOP PANEL DEFECTS:" in defects_content.upper():
-                top_card = ctk.CTkFrame(self.last_report_container, fg_color="#d1ecf1", corner_radius=15,
-                                       border_width=3, border_color="#0c5460")
-                top_card.pack(fill="x", padx=15, pady=(10, 8))
-                
-                # Top header (no emoji)
-                top_header = ctk.CTkFrame(top_card, fg_color="#17a2b8", corner_radius=12)
-                top_header.pack(fill="x", padx=4, pady=4)
-                ctk.CTkLabel(top_header, text="TOP PANEL DEFECTS", font=("Arial", 28, "bold"),
-                           text_color="white").pack(pady=15)
-                
-                # Defects list (no icons)
-                defects_found = False
-                in_top_section = False  # Initialize variable
-                for line in lines:
-                    if "TOP PANEL DEFECTS:" in line.upper():
-                        in_top_section = True
-                        continue
-                    if "BOTTOM PANEL DEFECTS:" in line.upper() or "TOP PANEL GRADING:" in line.upper():
-                        in_top_section = False
-                    if in_top_section and line.strip() and line.strip()[0].isdigit():
-                        defects_found = True
-                        defect_item = ctk.CTkFrame(top_card, fg_color="white", corner_radius=10)
-                        defect_item.pack(fill="x", padx=15, pady=6)
-                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 22),
-                                   text_color="#0c5460", anchor="w").pack(padx=20, pady=12, anchor="w")
-                
-                if not defects_found:
-                    ctk.CTkLabel(top_card, text="No defects detected", font=("Arial", 20),
-                               text_color="#155724").pack(padx=20, pady=15)
-                
-                # Top grading badge (no emoji)
-                for line in lines:
-                    if "TOP PANEL GRADING:" in line.upper():
-                        grade_line = line.split(":")[1].strip() if ":" in line else ""
-                        grade_badge = ctk.CTkFrame(top_card, fg_color="#0c5460", corner_radius=20)
-                        grade_badge.pack(pady=12)
-                        ctk.CTkLabel(grade_badge, text=f"Grade: {grade_line}", font=("Arial", 24, "bold"),
-                                   text_color="white").pack(padx=30, pady=10)
-            
-            # Bottom Panel Defects Card (case-insensitive check)
-            if "BOTTOM PANEL DEFECTS:" in defects_content.upper():
-                bottom_card = ctk.CTkFrame(self.last_report_container, fg_color="#fff3cd", corner_radius=15,
-                                          border_width=3, border_color="#856404")
-                bottom_card.pack(fill="x", padx=15, pady=(8, 10))
-                
-                # Bottom header (no emoji)
-                bottom_header = ctk.CTkFrame(bottom_card, fg_color="#ffc107", corner_radius=12)
-                bottom_header.pack(fill="x", padx=4, pady=4)
-                ctk.CTkLabel(bottom_header, text="BOTTOM PANEL DEFECTS", font=("Arial", 28, "bold"),
-                           text_color="#856404").pack(pady=15)
-                
-                # Defects list (no icons)
-                defects_found = False
-                in_bottom_section = False  # Initialize variable
-                for line in lines:
-                    if "BOTTOM PANEL DEFECTS:" in line.upper():
-                        in_bottom_section = True
-                        continue
-                    if "BOTTOM PANEL GRADING:" in line.upper() or "FINAL GRADE:" in line.upper():
-                        in_bottom_section = False
-                    if in_bottom_section and line.strip() and line.strip()[0].isdigit():
-                        defects_found = True
-                        defect_item = ctk.CTkFrame(bottom_card, fg_color="white", corner_radius=10)
-                        defect_item.pack(fill="x", padx=15, pady=6)
-                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 22),
-                                   text_color="#856404", anchor="w").pack(padx=20, pady=12, anchor="w")
-                
-                if not defects_found:
-                    ctk.CTkLabel(bottom_card, text="No defects detected", font=("Arial", 20),
-                               text_color="#155724").pack(padx=20, pady=15)
-                
-                # Bottom grading badge (no emoji)
-                for line in lines:
-                    if "BOTTOM PANEL GRADING:" in line.upper():
-                        grade_line = line.split(":")[1].strip() if ":" in line else ""
-                        grade_badge = ctk.CTkFrame(bottom_card, fg_color="#856404", corner_radius=20)
-                        grade_badge.pack(pady=12)
-                        ctk.CTkLabel(grade_badge, text=f"Grade: {grade_line}", font=("Arial", 24, "bold"),
-                                   text_color="white").pack(padx=30, pady=10)
-            
-            # Final Grade Card - Hero Element (only create if FINAL GRADE exists - case-insensitive)
-            final_grade = None
             for line in lines:
-                if "FINAL GRADE:" in line.upper():
-                    final_grade = line.split(":")[1].strip() if ":" in line else None
+                if "TOP PANEL DEFECTS:" in line.upper():
+                    in_top_section = True
+                    continue
+                if "BOTTOM PANEL DEFECTS:" in line.upper():
+                    in_top_section = False
+                    break
+                if in_top_section and line.strip():
+                    if line.strip()[0].isdigit():
+                        defects_found = True
+                        defect_item = ctk.CTkFrame(self.top_defects_content, fg_color="white", corner_radius=10)
+                        defect_item.pack(fill="x", padx=5, pady=4)
+                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
+                                   text_color="#0c5460", anchor="w", wraplength=350).pack(padx=15, pady=10, anchor="w")
+                    elif "No defects detected" in line:
+                        defects_found = True
+                        ctk.CTkLabel(self.top_defects_content, text="No defects detected",
+                                   font=("Arial", 18), text_color="#155724").pack(pady=20)
+            
+            # Show grade if available
+            for line in lines:
+                if "Top Panel Grade:" in line:
+                    grade_text = line.split(":")[-1].strip()
+                    grade_badge = ctk.CTkFrame(self.top_defects_content, fg_color="#0c5460", corner_radius=15)
+                    grade_badge.pack(pady=15, padx=10, fill="x")
+                    ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", font=("Arial", 20, "bold"),
+                               text_color="white").pack(padx=20, pady=10)
                     break
             
-            if final_grade:
-                final_card = ctk.CTkFrame(self.last_report_container, fg_color="#d4edda", corner_radius=20,
-                                         border_width=4, border_color="#155724")
-                final_card.pack(fill="x", padx=15, pady=(15, 20))
-                
-                # Final grade text (no trophy emoji)
-                grade_label_frame = ctk.CTkFrame(final_card, fg_color="#28a745", corner_radius=15)
-                grade_label_frame.pack(padx=25, pady=25)
-                ctk.CTkLabel(grade_label_frame, text="FINAL GRADE", font=("Arial", 28, "bold"),
-                           text_color="#e9ecef").pack(padx=40, pady=(25, 10))
-                ctk.CTkLabel(grade_label_frame, text=final_grade, font=("Arial", 72, "bold"),
-                           text_color="white").pack(padx=40, pady=(10, 25))
+            if not defects_found:
+                ctk.CTkLabel(self.top_defects_content, text="No defects detected",
+                           font=("Arial", 18), text_color="#155724").pack(pady=20)
+        
+        # ===== COLUMN 3: BOTTOM PANEL DEFECTS =====
+        if hasattr(self, 'bottom_defects_content'):
+            defects_found = False
+            in_bottom_section = False
+            
+            for line in lines:
+                if "BOTTOM PANEL DEFECTS:" in line.upper():
+                    in_bottom_section = True
+                    continue
+                if in_bottom_section and line.strip():
+                    if line.strip()[0].isdigit():
+                        defects_found = True
+                        defect_item = ctk.CTkFrame(self.bottom_defects_content, fg_color="white", corner_radius=10)
+                        defect_item.pack(fill="x", padx=5, pady=4)
+                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
+                                   text_color="#856404", anchor="w", wraplength=350).pack(padx=15, pady=10, anchor="w")
+                    elif "No defects detected" in line:
+                        defects_found = True
+                        ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
+                                   font=("Arial", 18), text_color="#155724").pack(pady=20)
+            
+            # Show grade if available
+            for line in lines:
+                if "Bottom Panel Grade:" in line:
+                    grade_text = line.split(":")[-1].strip()
+                    grade_badge = ctk.CTkFrame(self.bottom_defects_content, fg_color="#856404", corner_radius=15)
+                    grade_badge.pack(pady=15, padx=10, fill="x")
+                    ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", font=("Arial", 20, "bold"),
+                               text_color="white").pack(padx=20, pady=10)
+                    break
+            
+            if not defects_found:
+                ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
+                           font=("Arial", 18), text_color="#155724").pack(pady=20)
+        
+        # Force GUI update to ensure all widgets render immediately
+        if hasattr(self, 'wood_info_content'):
+            self.wood_info_content.update_idletasks()
+        if hasattr(self, 'top_defects_content'):
+            self.top_defects_content.update_idletasks()
+        if hasattr(self, 'bottom_defects_content'):
+            self.bottom_defects_content.update_idletasks()
+        if hasattr(self, 'last_report_container'):
+            self.last_report_container.update_idletasks()
         
         # Store the latest wood folder path for the "View Folder" button
         self.latest_wood_folder = wood_folder

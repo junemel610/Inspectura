@@ -27,3 +27,14 @@
 2026-01-27 13:04:48 - Graded Piece #2 as G2-2 -> Arduino Cmd: 2
 2026-01-27 13:05:55 - Graded Piece #3 as G2-1 -> Arduino Cmd: 2
 2026-01-27 13:14:04 - Graded Piece #1 as G2-2 -> Arduino Cmd: 2
+2026-01-27 13:27:56 - Graded Piece #1 as G2-2 -> Arduino Cmd: 2
+2026-01-27 13:29:34 - Graded Piece #2 as G2-2 -> Arduino Cmd: 2
+2026-01-27 13:50:17 - Graded Piece #1 as G2-4 -> Arduino Cmd: 3
+2026-01-27 13:58:01 - Graded Piece #1 as G2-4 -> Arduino Cmd: 3
+2026-01-27 13:59:16 - Graded Piece #2 as G2-2 -> Arduino Cmd: 2
+2026-01-27 14:03:47 - Graded Piece #1 as G2-3 -> Arduino Cmd: 3
+2026-01-27 14:04:42 - Graded Piece #2 as G2-2 -> Arduino Cmd: 2
+2026-01-27 14:07:34 - Graded Piece #1 as G2-2 -> Arduino Cmd: 2
+2026-01-27 14:29:56 - Graded Piece #1 as G2-2 -> Arduino Cmd: 2
+2026-01-27 14:31:03 - Graded Piece #2 as G2-2 -> Arduino Cmd: 2
+2026-01-27 14:34:15 - Graded Piece #1 as G2-2 -> Arduino Cmd: 2
