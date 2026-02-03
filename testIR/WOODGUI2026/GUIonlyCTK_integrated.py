@@ -360,7 +360,7 @@ class CameraHandler:
             'gain': 0
         }
         self.bottom_camera_settings = {
-            'brightness': 75,
+            'brightness': 90,
             'contrast': 125,
             'saturation': 125,
             'hue': 0,
@@ -2385,15 +2385,15 @@ class App(ctk.CTk):
             self.after(100, self.auto_fullscreen_rpi)
 
         # Calculate responsive font sizes based on screen size - MAXIMIZED FOR VISIBILITY
-        base_font_size = max(16, min(28, int(screen_height / 40)))  # Increased from /60 to /40 for larger fonts
-        self.font_small = (PRIMARY_FONT_FAMILY, base_font_size + 2)  # Changed from -1 to +2
-        self.font_normal = (PRIMARY_FONT_FAMILY, base_font_size + 4)  # Changed from base to +4
-        self.font_large = (PRIMARY_FONT_FAMILY, base_font_size + 8, "bold")  # Changed from +2 to +8
-        self.font_button = (BUTTON_FONT_FAMILY, base_font_size + 4, "bold")  # Changed from base to +4
+        base_font_size = max(20, min(36, int(screen_height / 30)))  # Increased from /40 to /30 for maximum fonts
+        self.font_small = (PRIMARY_FONT_FAMILY, base_font_size + 4)  # Increased from +2 to +4
+        self.font_normal = (PRIMARY_FONT_FAMILY, base_font_size + 8)  # Increased from +4 to +8
+        self.font_large = (PRIMARY_FONT_FAMILY, base_font_size + 12, "bold")  # Increased from +8 to +12
+        self.font_button = (BUTTON_FONT_FAMILY, base_font_size + 8, "bold")  # Increased from +4 to +8
         
         # Additional font sizes for modern UI
-        self.font_title = (PRIMARY_FONT_FAMILY, base_font_size + 12, "bold")  # For main titles
-        self.font_subtitle = (PRIMARY_FONT_FAMILY, base_font_size + 6, "bold")  # For subtitles
+        self.font_title = (PRIMARY_FONT_FAMILY, base_font_size + 16, "bold")  # Increased from +12 to +16
+        self.font_subtitle = (PRIMARY_FONT_FAMILY, base_font_size + 10, "bold")  # Increased from +6 to +10
 
         # Configure styles for white margins and custom button colors
         style = ttk.Style()
@@ -2758,18 +2758,18 @@ class App(ctk.CTk):
             defect_frame.pack_propagate(False)
 
             # Title label with larger font
-            ctk.CTkLabel(defect_frame, text=title, font=("Arial", 32, "bold"), text_color="black").pack(pady=(12, 8))
+            ctk.CTkLabel(defect_frame, text=title, font=("Arial", 48, "bold"), text_color="black").pack(pady=(12, 8))
 
             # Header frame for TOP and BOTTOM labels
             header_frame = ctk.CTkFrame(defect_frame, fg_color="transparent")
             header_frame.pack(fill="x", padx=5, pady=(0, 5))
             
             # TOP column label
-            top_header = ctk.CTkLabel(header_frame, text="TOP", font=("Arial", 16, "bold"), text_color="black")
+            top_header = ctk.CTkLabel(header_frame, text="TOP", font=("Arial", 28, "bold"), text_color="black")
             top_header.pack(side="left", expand=True, fill="x")
             
             # BOTTOM column label
-            bottom_header = ctk.CTkLabel(header_frame, text="BOTTOM", font=("Arial", 16, "bold"), text_color="black")
+            bottom_header = ctk.CTkLabel(header_frame, text="BOTTOM", font=("Arial", 28, "bold"), text_color="black")
             bottom_header.pack(side="left", expand=True, fill="x")
 
             # Single scrollable container for both columns
@@ -2795,11 +2795,11 @@ class App(ctk.CTk):
 
             # Initial "No detected items" labels
             top_label = ctk.CTkLabel(top_container, text="No detected items",
-                                    text_color="gray", font=("Arial", 12))
+                                    text_color="gray", font=("Arial", 20))
             top_label.pack(pady=10)
             
             bottom_label = ctk.CTkLabel(bottom_container, text="No detected items",
-                                       text_color="gray", font=("Arial", 12))
+                                       text_color="gray", font=("Arial", 20))
             bottom_label.pack(pady=10)
 
             # Store references with camera-specific keys
@@ -2825,13 +2825,13 @@ class App(ctk.CTk):
 
         # Combined grade label (centered with black text)
         self.combined_grade_label = ctk.CTkLabel(grade_frame, text="WOOD'S GRADE: No Grade",
-                                                 font=("Arial", 24, "bold"), text_color="black", 
+                                                 font=("Arial", 36, "bold"), text_color="black", 
                                                  anchor="center")
         self.combined_grade_label.pack(pady=(10, 5), anchor="center")
 
         # Create status_label as CTkLabel (centered)
         self.status_label = ctk.CTkLabel(grade_frame, text="Status: IDLE",
-                                        font=("Arial", 16, "bold"), text_color="green",
+                                        font=("Arial", 28, "bold"), text_color="green",
                                         anchor="center")
         self.status_label.pack(pady=(5, 10), anchor="center")
         
@@ -2857,7 +2857,7 @@ class App(ctk.CTk):
         start_button = ctk.CTkButton(
             buttons_subframe, text="START", command=self.set_scan_mode,
             fg_color="#28a745", hover_color="#218838", corner_radius=6,
-            font=("Arial", 20, "bold")
+            font=("Arial", 32, "bold")
         )
         start_button.pack(side="left", fill="both", expand=True, padx=(0, 2))
 
@@ -2865,7 +2865,7 @@ class App(ctk.CTk):
         stop_button = ctk.CTkButton(
             buttons_subframe, text="STOP", command=self.set_idle_mode,
             fg_color="#dc3545", hover_color="#c82333", corner_radius=6,
-            font=("Arial", 20, "bold")
+            font=("Arial", 32, "bold")
         )
         stop_button.pack(side="left", fill="both", expand=True, padx=(2, 0))
 
@@ -2880,7 +2880,7 @@ class App(ctk.CTk):
         # Header
         header_frame = ctk.CTkFrame(report_frame, fg_color="transparent")
         header_frame.pack(fill="x", pady=(20, 10))
-        ctk.CTkLabel(header_frame, text="Last Graded Report", font=("Arial", 48, "bold"), text_color="#1a1a1a").pack()
+        ctk.CTkLabel(header_frame, text="Last Graded Report", font=("Arial", 64, "bold"), text_color="#1a1a1a").pack()
 
         # Main container frame for 3 columns (no scrolling)
         main_container = ctk.CTkFrame(report_frame, fg_color="transparent")
@@ -2898,7 +2898,7 @@ class App(ctk.CTk):
         
         wood_info_header = ctk.CTkFrame(wood_info_frame, fg_color="#f8f9fa", corner_radius=12)
         wood_info_header.pack(fill="x", padx=4, pady=4)
-        ctk.CTkLabel(wood_info_header, text="Wood Information", font=("Arial", 26, "bold"), text_color="#495057").pack(pady=10)
+        ctk.CTkLabel(wood_info_header, text="Wood Information", font=("Arial", 38, "bold"), text_color="#495057").pack(pady=10)
         
         # Scrollable content for wood info
         self.wood_info_content = ctk.CTkScrollableFrame(wood_info_frame, fg_color="transparent")
@@ -2910,7 +2910,7 @@ class App(ctk.CTk):
         
         top_defects_header = ctk.CTkFrame(top_defects_frame, fg_color="#17a2b8", corner_radius=12)
         top_defects_header.pack(fill="x", padx=4, pady=4)
-        ctk.CTkLabel(top_defects_header, text="Top Panel Defects", font=("Arial", 26, "bold"), text_color="white").pack(pady=10)
+        ctk.CTkLabel(top_defects_header, text="Top Panel Defects", font=("Arial", 38, "bold"), text_color="white").pack(pady=10)
         
         # Scrollable content for top defects
         self.top_defects_content = ctk.CTkScrollableFrame(top_defects_frame, fg_color="transparent")
@@ -2922,7 +2922,7 @@ class App(ctk.CTk):
         
         bottom_defects_header = ctk.CTkFrame(bottom_defects_frame, fg_color="#ffc107", corner_radius=12)
         bottom_defects_header.pack(fill="x", padx=4, pady=4)
-        ctk.CTkLabel(bottom_defects_header, text="Bottom Panel Defects", font=("Arial", 26, "bold"), text_color="#856404").pack(pady=10)
+        ctk.CTkLabel(bottom_defects_header, text="Bottom Panel Defects", font=("Arial", 38, "bold"), text_color="#856404").pack(pady=10)
         
         # Scrollable content for bottom defects
         self.bottom_defects_content = ctk.CTkScrollableFrame(bottom_defects_frame, fg_color="transparent")
@@ -2933,11 +2933,11 @@ class App(ctk.CTk):
         
         # Initial placeholder in wood info
         ctk.CTkLabel(self.wood_info_content, text="No reports available yet",
-                    font=("Arial", 20, "bold"), text_color="#495057").pack(pady=20)
+                    font=("Arial", 32, "bold"), text_color="#495057").pack(pady=20)
         ctk.CTkLabel(self.top_defects_content, text="No defects",
-                    font=("Arial", 18), text_color="#155724").pack(pady=20)
+                    font=("Arial", 28), text_color="#155724").pack(pady=20)
         ctk.CTkLabel(self.bottom_defects_content, text="No defects",
-                    font=("Arial", 18), text_color="#155724").pack(pady=20)
+                    font=("Arial", 28), text_color="#155724").pack(pady=20)
         
         # Force immediate rendering of all content frames
         self.wood_info_content.update_idletasks()
@@ -2953,7 +2953,7 @@ class App(ctk.CTk):
         live_frame = ctk.CTkFrame(self.reports_tab, corner_radius=6)
         live_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
-        ctk.CTkLabel(live_frame, text="Live Grading Results", font=("Arial", 42, "bold")).pack(pady=(15, 10))
+        ctk.CTkLabel(live_frame, text="Live Grading Results", font=("Arial", 56, "bold")).pack(pady=(15, 10))
 
         # Grades container
         grades_frame = ctk.CTkFrame(live_frame, fg_color="transparent")
@@ -2966,9 +2966,9 @@ class App(ctk.CTk):
         for i, (grade, color) in enumerate(zip(grades, colors)):
             grade_container = ctk.CTkFrame(grades_frame, fg_color=color, corner_radius=10)
             grade_container.pack(side="left", fill="both", expand=True, padx=(0 if i==0 else 3, 3 if i<4 else 0))
-            grade_label_widget = ctk.CTkLabel(grade_container, text=grade, font=("Arial", 28, "bold"), text_color="black")
+            grade_label_widget = ctk.CTkLabel(grade_container, text=grade, font=("Arial", 40, "bold"), text_color="black")
             grade_label_widget.pack(pady=(20, 5))
-            count_label = ctk.CTkLabel(grade_container, text=str(self.grade_counts.get(i+1, 0)), font=("Arial", 56, "bold"), text_color="black")
+            count_label = ctk.CTkLabel(grade_container, text=str(self.grade_counts.get(i+1, 0)), font=("Arial", 72, "bold"), text_color="black")
             count_label.pack(pady=(5, 20))
             self.count_labels[grade] = count_label
 
@@ -3023,7 +3023,7 @@ class App(ctk.CTk):
             
             # Add "No detected items" label back
             no_items_label = ctk.CTkLabel(container, text="No detected items",
-                                         text_color="gray", font=("Arial", 12))
+                                         text_color="gray", font=("Arial", 20))
             no_items_label.pack(pady=10)
             self.defect_labels[key] = no_items_label
         
@@ -3087,8 +3087,8 @@ class App(ctk.CTk):
             elif pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            # Calculate display size (maintain aspect ratio, smaller for two-column layout)
-            max_width = 120  # Reduced from 180 to fit two columns
+            # Calculate display size (maintain aspect ratio, maximized for two-column layout)
+            max_width = 180  # Increased from 120 to 180 for larger defect images
             aspect_ratio = pil_image.height / pil_image.width
             display_width = min(pil_image.width, max_width)
             display_height = int(display_width * aspect_ratio)
@@ -3115,7 +3115,7 @@ class App(ctk.CTk):
             
             # Size label (large font)
             size_label = ctk.CTkLabel(item_frame, text=f"{size_mm:.2f} mm",
-                                     font=("Arial", 16, "bold"), text_color="black")
+                                     font=("Arial", 24, "bold"), text_color="black")
             size_label.pack(pady=(0, 5), anchor="center")
             
             # Force update to ensure proper layout
@@ -6328,7 +6328,7 @@ class App(ctk.CTk):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         with open(os.path.join(wood_folder, "defects.txt"), "w") as f:
-            f.write(f"Detection Timestamp: {timestamp}\n")
+            f.write(f"Timestamp: {timestamp}\n")
             f.write(f"Wood No. ({wood_number}) - {round(wood_width, 2)}mm\n")
             f.write(f"Top Panel Grade: {top_grade}\n")
             f.write(f"Bottom Panel Grade: {bottom_grade}\n")
@@ -6392,7 +6392,7 @@ class App(ctk.CTk):
                     break
                 if line.strip():
                     info_label = ctk.CTkLabel(self.wood_info_content, text=line.strip(), 
-                                            font=("Arial", 18, "bold"), text_color="#212529",
+                                            font=("Arial", 28, "bold"), text_color="#212529",
                                             anchor="w", justify="left")
                     info_label.pack(fill="x", padx=10, pady=6)
         
@@ -6413,12 +6413,12 @@ class App(ctk.CTk):
                         defects_found = True
                         defect_item = ctk.CTkFrame(self.top_defects_content, fg_color="white", corner_radius=10)
                         defect_item.pack(fill="x", padx=5, pady=4)
-                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
+                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 26),
                                    text_color="#0c5460", anchor="w").pack(padx=15, pady=10, anchor="w")
                     elif "No defects detected" in line:
                         defects_found = True
                         ctk.CTkLabel(self.top_defects_content, text="No defects detected",
-                                   font=("Arial", 18), text_color="#155724").pack(pady=20)
+                                   font=("Arial", 26), text_color="#155724").pack(pady=20)
             
             # Show grade if available
             for line in lines:
@@ -6430,7 +6430,7 @@ class App(ctk.CTk):
                         grade_badge = ctk.CTkFrame(self.top_defects_content, fg_color="#0c5460", corner_radius=15)
                         grade_badge.pack(pady=15, padx=10, fill="x")
                         grade_label = ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", 
-                                                  font=("Arial", 20, "bold"),
+                                                  font=("Arial", 32, "bold"),
                                                   text_color="white")
                         grade_label.pack(padx=20, pady=10)
                         print(f"✅ Top Panel grade badge created with text: 'Grade: {grade_text}'")
@@ -6440,7 +6440,7 @@ class App(ctk.CTk):
             
             if not defects_found:
                 ctk.CTkLabel(self.top_defects_content, text="No defects detected",
-                           font=("Arial", 18), text_color="#155724").pack(pady=20)
+                           font=("Arial", 26), text_color="#155724").pack(pady=20)
         
         # ===== COLUMN 3: BOTTOM PANEL DEFECTS =====
         if hasattr(self, 'bottom_defects_content'):
@@ -6459,12 +6459,12 @@ class App(ctk.CTk):
                         defects_found = True
                         defect_item = ctk.CTkFrame(self.bottom_defects_content, fg_color="white", corner_radius=10)
                         defect_item.pack(fill="x", padx=5, pady=4)
-                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
+                        ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 26),
                                    text_color="#856404", anchor="w").pack(padx=15, pady=10, anchor="w")
                     elif "No defects detected" in line:
                         defects_found = True
                         ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
-                                   font=("Arial", 18), text_color="#155724").pack(pady=20)
+                                   font=("Arial", 26), text_color="#155724").pack(pady=20)
             
             # Show grade if available
             for line in lines:
@@ -6476,7 +6476,7 @@ class App(ctk.CTk):
                         grade_badge = ctk.CTkFrame(self.bottom_defects_content, fg_color="#856404", corner_radius=15)
                         grade_badge.pack(pady=15, padx=10, fill="x")
                         grade_label = ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", 
-                                                  font=("Arial", 20, "bold"),
+                                                  font=("Arial", 32, "bold"),
                                                   text_color="white")
                         grade_label.pack(padx=20, pady=10)
                         print(f"✅ Bottom Panel grade badge created with text: 'Grade: {grade_text}'")
@@ -6486,7 +6486,7 @@ class App(ctk.CTk):
             
             if not defects_found:
                 ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
-                           font=("Arial", 18), text_color="#155724").pack(pady=20)
+                           font=("Arial", 26), text_color="#155724").pack(pady=20)
         
         # Force GUI update to ensure all widgets render immediately with multiple passes
         # Use update() instead of update_idletasks() for more reliable rendering
