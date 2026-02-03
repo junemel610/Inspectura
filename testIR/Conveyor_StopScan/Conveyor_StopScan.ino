@@ -32,7 +32,10 @@ unsigned long errorPauseStartTime = 0; // When error pause started
 char lastErrorType[20] = "";         // Last error type received (increased from 12 to 20)
 
 // --- Stepper Control ---
-unsigned long stepInterval = 500;   // µs per step (fixed speed)
+int minDelay = 3000;              // Starting delay for ramping
+int maxDelay = 1100;              // Target delay after ramping
+int rampDelay = 3000;             // Current delay (starts at minDelay)
+bool rampFinished = false;        // Ramping state
 unsigned long lastStepTime = 0;
 bool stepState = false;
 
@@ -45,7 +48,7 @@ unsigned long beamBrokenStartTime = 0;
 bool beamIsBroken = false;
 
 // --- Conveyor Parameters ---
-const float CONVEYOR_SPEED_IN_PER_SEC = 1.2395;   // physical conveyor speed (in/s)
+const float CONVEYOR_SPEED_IN_PER_SEC = 1.160;   // physical conveyor speed (in/s)
 const unsigned long STOP_DURATION_MS = 5000;      // 5-second pauses between scans
 const float WOOD_TOTAL_LENGTH_INCH = 21.0;        // <-- change this for each wood length
 const int NUM_SEGMENTS = 4;
@@ -125,11 +128,23 @@ void handleStepper() {
   digitalWrite(STEPPER_ENA_PIN, active ? LOW : HIGH);
   if (active) {
     unsigned long t = micros();
-    if (t - lastStepTime >= stepInterval) {
+    if (t - lastStepTime >= rampDelay) {
       lastStepTime = t;
-      stepState = !stepState;
-      digitalWrite(STEPPER_STEP_PIN, stepState);
+      digitalWrite(STEPPER_STEP_PIN, HIGH);
+      delayMicroseconds(2);
+      digitalWrite(STEPPER_STEP_PIN, LOW);
+      
+      // Ramp up speed
+      if (!rampFinished && rampDelay > maxDelay) {
+        rampDelay -= 2;
+      } else {
+        rampFinished = true;
+      }
     }
+  } else {
+    // Reset ramping when stopped
+    rampDelay = minDelay;
+    rampFinished = false;
   }
 }
 
@@ -146,10 +161,11 @@ void handleScanPhase() {
   // Conveyor runs while waiting for beam
   if (waitingForBeam && !scanInProgress) {
     unsigned long t = micros();
-    if (t - lastStepTimeScan >= stepInterval) {
+    if (t - lastStepTimeScan >= maxDelay) {
       lastStepTimeScan = t;
-      stepStateScan = !stepStateScan;
-      digitalWrite(STEPPER_STEP_PIN, stepStateScan);
+      digitalWrite(STEPPER_STEP_PIN, HIGH);
+      delayMicroseconds(2);
+      digitalWrite(STEPPER_STEP_PIN, LOW);
     }
     return;
   }
@@ -166,10 +182,11 @@ void handleScanPhase() {
       }
 
       unsigned long t = micros();
-      if (t - lastStepTimeScan >= stepInterval) {
+      if (t - lastStepTimeScan >= maxDelay) {
         lastStepTimeScan = t;
-        stepStateScan = !stepStateScan;
-        digitalWrite(STEPPER_STEP_PIN, stepStateScan);
+        digitalWrite(STEPPER_STEP_PIN, HIGH);
+        delayMicroseconds(2);
+        digitalWrite(STEPPER_STEP_PIN, LOW);
       }
 
       if (millis() - moveStartTime >= segmentDurationMs) {
@@ -209,10 +226,11 @@ void clearTailAfterScan() {
 
   while (millis() - clearStart < clearDurationMs) {
     unsigned long t = micros();
-    if (t - lastStepTimeScan >= stepInterval) {
+    if (t - lastStepTimeScan >= maxDelay) {
       lastStepTimeScan = t;
-      stepStateScan = !stepStateScan;
-      digitalWrite(STEPPER_STEP_PIN, stepStateScan);
+      digitalWrite(STEPPER_STEP_PIN, HIGH);
+      delayMicroseconds(2);
+      digitalWrite(STEPPER_STEP_PIN, LOW);
     }
   }
 
@@ -334,8 +352,22 @@ void processCommand(char* command, int len) {
       char cmd = command[0];
       switch (cmd) {
         case '1': activateAllServoGates(90); break;
-        case '2': activateAllServoGates(45); break;
-        case '3': activateAllServoGates(135); break;
+        case '2':
+          // Grouped servo movement - Command 1
+            servo1.write(90);
+            servo2.write(108);
+            delay(250);
+            servo3.write(25);
+            servo4.write(25);
+            break;
+        case '3': 
+          // Grouped servo movement - Command 3
+          servo1.write(90);
+          servo2.write(100);
+          delay(250);
+          servo3.write(155);
+          servo4.write(155);
+          break;
         case '0': activateAllServoGates(0); break;
         case 'C':
           if (!systemPaused) {

@@ -872,7 +872,7 @@ class LiveInference:
             'gain': 0
         }
         self.bottom_camera_settings = {
-            'brightness': 25,
+            'brightness': 75,
             'contrast': 125,
             'saturation': 125,
             'hue': 0,

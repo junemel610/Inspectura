@@ -351,7 +351,7 @@ class CameraHandler:
         self.top_camera_device = None  # Will be set to successful device path
         self.bottom_camera_device = None  # Will be set to successful device path
         self.top_camera_settings = {
-            'brightness': -50,
+            'brightness': -80,
             'contrast': 32,
             'saturation': 64,
             'hue': 0,
@@ -360,7 +360,7 @@ class CameraHandler:
             'gain': 0
         }
         self.bottom_camera_settings = {
-            'brightness': 25,
+            'brightness': 75,
             'contrast': 125,
             'saturation': 125,
             'hue': 0,
@@ -2675,9 +2675,22 @@ class App(ctk.CTk):
         available_width = screen_width - 2 * tabview_padding
         available_height = screen_height - 2 * tabview_padding
 
-        # Create tabview
-        self.tabview = ctk.CTkTabview(self, width=available_width, height=available_height)
+        # Create tabview with larger tab buttons for kiosk
+        self.tabview = ctk.CTkTabview(self, width=available_width, height=available_height,
+                                      segmented_button_fg_color="#1f538d",
+                                      segmented_button_selected_color="#14375e",
+                                      segmented_button_selected_hover_color="#0d2a4a",
+                                      segmented_button_unselected_color="#4a7ba7",
+                                      segmented_button_unselected_hover_color="#2e5984")
         self.tabview.pack(fill="both", expand=True, padx=tabview_padding, pady=tabview_padding)
+        
+        # Make tab buttons larger for kiosk - increase font size
+        try:
+            # Access the segmented button widget and increase font size
+            if hasattr(self.tabview, '_segmented_button'):
+                self.tabview._segmented_button.configure(font=("Arial", 32, "bold"), height=80)
+        except Exception as e:
+            print(f"Could not resize tab buttons: {e}")
 
         # Add tabs
         self.live_tab = self.tabview.add("Live View")
@@ -2922,9 +2935,19 @@ class App(ctk.CTk):
         ctk.CTkLabel(self.wood_info_content, text="No reports available yet",
                     font=("Arial", 20, "bold"), text_color="#495057").pack(pady=20)
         ctk.CTkLabel(self.top_defects_content, text="No defects",
-                    font=("Arial", 18), text_color="#0c5460").pack(pady=20)
+                    font=("Arial", 18), text_color="#155724").pack(pady=20)
         ctk.CTkLabel(self.bottom_defects_content, text="No defects",
-                    font=("Arial", 18), text_color="#856404").pack(pady=20)
+                    font=("Arial", 18), text_color="#155724").pack(pady=20)
+        
+        # Force immediate rendering of all content frames
+        self.wood_info_content.update_idletasks()
+        self.wood_info_content.update()
+        self.top_defects_content.update_idletasks()
+        self.top_defects_content.update()
+        self.bottom_defects_content.update_idletasks()
+        self.bottom_defects_content.update()
+        main_container.update_idletasks()
+        main_container.update()
 
         # Live Grading Result Section  
         live_frame = ctk.CTkFrame(self.reports_tab, corner_radius=6)
@@ -2937,7 +2960,7 @@ class App(ctk.CTk):
         grades_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         grades = ["G2-0", "G2-1", "G2-2", "G2-3", "G2-4"]
-        colors = ["#32CD32", "#90EE90", "#FFB347", "#FF6B6B", "#8B0000"]
+        colors = ["#32CD32", "#32CD32", "#FFB347", "#dc3545", "#dc3545"]
         self.count_labels = {}
 
         for i, (grade, color) in enumerate(zip(grades, colors)):
@@ -3386,8 +3409,8 @@ class App(ctk.CTk):
         """Convert SS-EN 1611-1 grade to Arduino sorting command"""
         # Map individual grades to sorting gates:
         grade_to_command = {
-            GRADE_G2_0: 1,    # Perfect (G2-0) - Gate 1
-            GRADE_G2_1: 2,    # Good (G2-1) - Gate 2
+            GRADE_G2_0: 1,    # Good (G2-0) - Gate 1
+            GRADE_G2_1: 1,    # Good (G2-1) - Gate 1
             GRADE_G2_2: 2,    # Fair (G2-2) - Gate 2
             GRADE_G2_3: 3,    # Poor (G2-3) - Gate 3
             GRADE_G2_4: 3     # Poor (G2-4) - Gate 3
@@ -3405,6 +3428,17 @@ class App(ctk.CTk):
             GRADE_G2_4: 'dark red'
         }
         return color_map.get(grade, 'gray')
+
+    def get_grade_quality_descriptor(self, grade):
+        """Get quality descriptor for grades (Good/Fair/Poor)"""
+        quality_map = {
+            GRADE_G2_0: 'Good',
+            GRADE_G2_1: 'Good',
+            GRADE_G2_2: 'Fair',
+            GRADE_G2_3: 'Poor',
+            GRADE_G2_4: 'Poor'
+        }
+        return quality_map.get(grade, 'Unknown')
 
     def create_section(self, parent, title, col):
         section_frame = ttk.LabelFrame(parent, text=title, padding="10")
@@ -5131,7 +5165,8 @@ class App(ctk.CTk):
             # Use sophisticated grading if measurements available
             if top_surface_grade is not None or bottom_surface_grade is not None:
                 final_grade = self.determine_final_grade(top_surface_grade, bottom_surface_grade)
-                combined_text = f"Final Grade: {final_grade} (SS-EN 1611-1)"
+                quality = self.get_grade_quality_descriptor(final_grade)
+                combined_text = f"Final Grade: {final_grade} ({quality})"
                 combined_color = self.get_grade_color(final_grade)
             else:
                 # Fallback to simple combined defect counting
@@ -6358,7 +6393,7 @@ class App(ctk.CTk):
                 if line.strip():
                     info_label = ctk.CTkLabel(self.wood_info_content, text=line.strip(), 
                                             font=("Arial", 18, "bold"), text_color="#212529",
-                                            anchor="w", justify="left", wraplength=400)
+                                            anchor="w", justify="left")
                     info_label.pack(fill="x", padx=10, pady=6)
         
         # ===== COLUMN 2: TOP PANEL DEFECTS =====
@@ -6379,7 +6414,7 @@ class App(ctk.CTk):
                         defect_item = ctk.CTkFrame(self.top_defects_content, fg_color="white", corner_radius=10)
                         defect_item.pack(fill="x", padx=5, pady=4)
                         ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
-                                   text_color="#0c5460", anchor="w", wraplength=350).pack(padx=15, pady=10, anchor="w")
+                                   text_color="#0c5460", anchor="w").pack(padx=15, pady=10, anchor="w")
                     elif "No defects detected" in line:
                         defects_found = True
                         ctk.CTkLabel(self.top_defects_content, text="No defects detected",
@@ -6389,10 +6424,18 @@ class App(ctk.CTk):
             for line in lines:
                 if "Top Panel Grade:" in line:
                     grade_text = line.split(":")[-1].strip()
-                    grade_badge = ctk.CTkFrame(self.top_defects_content, fg_color="#0c5460", corner_radius=15)
-                    grade_badge.pack(pady=15, padx=10, fill="x")
-                    ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", font=("Arial", 20, "bold"),
-                               text_color="white").pack(padx=20, pady=10)
+                    print(f"🔍 DEBUG Top Panel: Found grade line: '{line}'")
+                    print(f"🔍 DEBUG Top Panel: Extracted grade_text: '{grade_text}'")
+                    if grade_text:  # Only create badge if we have grade text
+                        grade_badge = ctk.CTkFrame(self.top_defects_content, fg_color="#0c5460", corner_radius=15)
+                        grade_badge.pack(pady=15, padx=10, fill="x")
+                        grade_label = ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", 
+                                                  font=("Arial", 20, "bold"),
+                                                  text_color="white")
+                        grade_label.pack(padx=20, pady=10)
+                        print(f"✅ Top Panel grade badge created with text: 'Grade: {grade_text}'")
+                    else:
+                        print(f"⚠️ WARNING: Top Panel grade_text is empty after split!")
                     break
             
             if not defects_found:
@@ -6408,13 +6451,16 @@ class App(ctk.CTk):
                 if "BOTTOM PANEL DEFECTS:" in line.upper():
                     in_bottom_section = True
                     continue
+                # Stop processing if we hit Final Grade or end of bottom section
+                if in_bottom_section and ("FINAL GRADE:" in line.upper() or "---" in line):
+                    break
                 if in_bottom_section and line.strip():
                     if line.strip()[0].isdigit():
                         defects_found = True
                         defect_item = ctk.CTkFrame(self.bottom_defects_content, fg_color="white", corner_radius=10)
                         defect_item.pack(fill="x", padx=5, pady=4)
                         ctk.CTkLabel(defect_item, text=line.strip(), font=("Arial", 18),
-                                   text_color="#856404", anchor="w", wraplength=350).pack(padx=15, pady=10, anchor="w")
+                                   text_color="#856404", anchor="w").pack(padx=15, pady=10, anchor="w")
                     elif "No defects detected" in line:
                         defects_found = True
                         ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
@@ -6424,25 +6470,38 @@ class App(ctk.CTk):
             for line in lines:
                 if "Bottom Panel Grade:" in line:
                     grade_text = line.split(":")[-1].strip()
-                    grade_badge = ctk.CTkFrame(self.bottom_defects_content, fg_color="#856404", corner_radius=15)
-                    grade_badge.pack(pady=15, padx=10, fill="x")
-                    ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", font=("Arial", 20, "bold"),
-                               text_color="white").pack(padx=20, pady=10)
+                    print(f"🔍 DEBUG Bottom Panel: Found grade line: '{line}'")
+                    print(f"🔍 DEBUG Bottom Panel: Extracted grade_text: '{grade_text}'")
+                    if grade_text:  # Only create badge if we have grade text
+                        grade_badge = ctk.CTkFrame(self.bottom_defects_content, fg_color="#856404", corner_radius=15)
+                        grade_badge.pack(pady=15, padx=10, fill="x")
+                        grade_label = ctk.CTkLabel(grade_badge, text=f"Grade: {grade_text}", 
+                                                  font=("Arial", 20, "bold"),
+                                                  text_color="white")
+                        grade_label.pack(padx=20, pady=10)
+                        print(f"✅ Bottom Panel grade badge created with text: 'Grade: {grade_text}'")
+                    else:
+                        print(f"⚠️ WARNING: Bottom Panel grade_text is empty after split!")
                     break
             
             if not defects_found:
                 ctk.CTkLabel(self.bottom_defects_content, text="No defects detected",
                            font=("Arial", 18), text_color="#155724").pack(pady=20)
         
-        # Force GUI update to ensure all widgets render immediately
+        # Force GUI update to ensure all widgets render immediately with multiple passes
+        # Use update() instead of update_idletasks() for more reliable rendering
         if hasattr(self, 'wood_info_content'):
             self.wood_info_content.update_idletasks()
+            self.wood_info_content.update()
         if hasattr(self, 'top_defects_content'):
             self.top_defects_content.update_idletasks()
+            self.top_defects_content.update()
         if hasattr(self, 'bottom_defects_content'):
             self.bottom_defects_content.update_idletasks()
+            self.bottom_defects_content.update()
         if hasattr(self, 'last_report_container'):
             self.last_report_container.update_idletasks()
+            self.last_report_container.update()
         
         # Store the latest wood folder path for the "View Folder" button
         self.latest_wood_folder = wood_folder
