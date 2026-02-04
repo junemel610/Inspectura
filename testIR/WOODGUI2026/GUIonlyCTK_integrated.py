@@ -3044,12 +3044,16 @@ class App(ctk.CTk):
             "DeadKnot": "DEAD KNOTS",
             "Sound_Knot": "LIVE KNOTS",
             "SoundKnot": "LIVE KNOTS",
+            "Live_Knot": "LIVE KNOTS",
+            "LiveKnot": "LIVE KNOTS",
             "Missing_Knot": "MISSING KNOTS",
             "MissingKnot": "MISSING KNOTS",
             "Unsound_Knot": "MISSING KNOTS",
             "UnsoundKnot": "MISSING KNOTS",
             "Knot_With_Crack": "KNOTS W/ CRACKS",
             "KnotWithCrack": "KNOTS W/ CRACKS",
+            "Crack_Knot": "KNOTS W/ CRACKS",
+            "CrackKnot": "KNOTS W/ CRACKS",
             "Crack": "KNOTS W/ CRACKS"
         }
         
